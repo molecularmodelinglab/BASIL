@@ -256,7 +256,7 @@ class BayBeIntegrationService:
         Returns:
             Dictionary with campaign information
         """
-        info = {
+        info: Dict[str, Any] = {
             "campaign_initialized": self.baybe_campaign is not None,
             "parameter_count": len(self.campaign.parameters),
             "target_count": len(self.campaign.targets),
