@@ -211,6 +211,8 @@ class ExperimentsTableScreen(BaseWidget):
         for row, experiment in enumerate(self.experiments):
             for col, param_name in enumerate(self._param_columns):
                 value = experiment.get(param_name, "")
+                if isinstance(value, float) or isinstance(value, int):
+                    value = round(value, 3)
                 item = QTableWidgetItem(str(value))
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Read-only
                 item.setBackground(Qt.GlobalColor.lightGray)
