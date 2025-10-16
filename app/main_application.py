@@ -130,6 +130,7 @@ class MainApplication(QMainWindow):
         # Reset wizard state when starting new campaign
         self.campaign_wizard.reset_wizard()
         self.campaign_wizard.workspace_path = self.current_workspace
+        self.campaign_wizard.campaign.workspace_path = self.current_workspace
         self.stacked_widget.setCurrentWidget(self.campaign_wizard)
         self.setWindowTitle(self.CREATE_CAMPAIGN_WINDOW_TITLE)
 
