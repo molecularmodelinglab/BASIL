@@ -120,15 +120,13 @@ class SettingsPanel(BaseWidget):
         # Surrogate model and acquisition function (read-only)
         if self.campaign:
             surrogate_label = QLabel("Surrogate Model")
-            surrogate_label.setObjectName("FormLabel")      
+            surrogate_label.setObjectName("FormLabel")
             surrogate_value = self._get_enum_display_name(BOSurrogateModel, self.campaign.surrogate_model)
             form_layout.addRow(surrogate_label, QLabel(surrogate_value))
 
             acquisition_label = QLabel("Acquisition Function")
-            acquisition_label.setObjectName("FormLabel") 
-            acquisition_value = self._get_enum_display_name(
-                BOAcquisitionFunction, self.campaign.acquisition_function
-            )
+            acquisition_label.setObjectName("FormLabel")
+            acquisition_value = self._get_enum_display_name(BOAcquisitionFunction, self.campaign.acquisition_function)
             form_layout.addRow(acquisition_label, QLabel(acquisition_value))
 
         return form_widget

@@ -1,14 +1,14 @@
-from baybe.surrogates.gaussian_process.core import GaussianProcessSurrogate
-from baybe.kernels import RBFKernel, RQKernel, MaternKernel, AdditiveKernel
-from baybe.surrogates.gaussian_process.kernel_factory import PlainKernelFactory
-from baybe.kernels.base import Kernel
 import gpytorch
 import torch
+from baybe.kernels import AdditiveKernel, MaternKernel, RQKernel
+from baybe.kernels.base import Kernel
+from baybe.surrogates.gaussian_process.kernel_factory import PlainKernelFactory
+
 
 class DotProductKernel(Kernel):
     def __init__(self, sigma=1.0):
         super().__init__()
-        object.__setattr__(self, '_sigma', sigma)
+        object.__setattr__(self, "_sigma", sigma)
 
     @property
     def sigma(self):
@@ -27,8 +27,8 @@ class DotProductKernel(Kernel):
             bias_prior=None,
         )
 
-def gp_kernel():
 
+def gp_kernel():
     dot_product_kernel = DotProductKernel(sigma=0.01)
 
     rq_kernel = RQKernel(lengthscale_initial_value=0.01)

@@ -54,8 +54,7 @@ class RunCard(Card):
             1
             for exp in self.run_data.get("experiments", [])
             if any(
-                target["name"] in exp and exp[target["name"]] is not None
-                for target in self.run_data.get("targets", [])
+                target["name"] in exp and exp[target["name"]] is not None for target in self.run_data.get("targets", [])
             )
         )
         completion_percentage = (completed_count / experiments_count) * 100 if experiments_count > 0 else 0

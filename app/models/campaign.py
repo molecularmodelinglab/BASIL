@@ -51,7 +51,7 @@ class Campaign:
         self.initial_dataset.clear()
         self.acquisition_function = BOAcquisitionFunction.QLOGEI.value
         self.surrogate_model = "GaussianProcess"
-        self.workspace_path = None 
+        self.workspace_path = None
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
         self.accessed_at = datetime.now()

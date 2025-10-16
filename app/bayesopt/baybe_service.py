@@ -116,7 +116,7 @@ class BayBeIntegrationService:
             try:
                 self.logger.info("Saving BayBE campaign state")
                 with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
-                    json.dump(self.baybe_campaign.to_json(), f,  ensure_ascii=False, indent=4)
+                    json.dump(self.baybe_campaign.to_json(), f, ensure_ascii=False, indent=4)
             except Exception as e:
                 self.logger.error(f"Error saving BayBE campaign state: {str(e)}")
 

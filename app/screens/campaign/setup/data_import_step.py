@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtWidgets import QFileDialog, QVBoxLayout
 
-from app.core.base import BaseScreen, BaseStep
+from app.core.base import BaseStep
 from app.models.campaign import Campaign
 from app.models.parameters import ParameterSerializer
 from app.models.parameters.base import BaseParameter
