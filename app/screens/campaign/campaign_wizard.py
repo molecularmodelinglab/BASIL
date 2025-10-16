@@ -68,6 +68,7 @@ class CampaignWizard(BaseScreen):
 
         # Shared campaign data
         self.campaign = Campaign()
+        self.campaign.workspace_path = self.workspace_path
         self.logger = logging.getLogger(__name__)
 
         super().__init__(parent)
