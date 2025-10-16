@@ -2,15 +2,16 @@ import logging
 import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QApplication
 from PySide6 import QtGui
+from PySide6.QtWidgets import QApplication
 
 from app.logging_config import setup_application_logging
 from app.main_application import MainApplication
 
 APPLICATION_NAME = "BASIL"
 
-def get_icon_path() -> str:
+
+def get_icon_path() -> str | None:
     """Get platform-specific icon path from bundled resources."""
     if sys.platform == "darwin":
         icon_name = "icon.icns"
@@ -18,19 +19,20 @@ def get_icon_path() -> str:
         icon_name = "icon.ico"
     else:
         icon_name = "icon.png"
-    
+
     # Check if running as PyInstaller bundle
-    if getattr(sys, 'frozen', False):
-        base_path = Path(sys._MEIPASS)
+    if getattr(sys, "frozen", False):
+        base_path = Path(sys._MEIPASS)  # type: ignore
         icon_path = base_path / "assets" / "icons" / icon_name
     else:
         base_path = Path(__file__).parent.parent
         icon_path = base_path / "assets" / "icons" / icon_name
-    
+
     if icon_path.exists():
         return str(icon_path)
     else:
         return None
+
 
 def main():
     setup_application_logging(app_name=APPLICATION_NAME)
@@ -39,12 +41,12 @@ def main():
     logger.info("BASIL Starting")
 
     try:
-
         # Windows-specific for proper taskbar icon
         if sys.platform.startswith("win"):
             try:
                 import ctypes
-                myappid = 'mml.unc.basil.0.0.1'
+
+                myappid = "mml.unc.basil.0.0.1"
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
             except Exception as e:
                 logger.warning(f"Could not set AppUserModelID: {e}")
