@@ -176,14 +176,11 @@ class BayBeIntegrationService:
         if validation_errors:
             raise ValueError(f"Campaign validation failed: {'; '.join(validation_errors)}")
 
-        # Convert parameters to BayBE search space
         search_space = ParameterConverter.create_search_space(self.campaign.parameters)
         self.logger.info(f"Created search space with {len(search_space.parameters)} parameters")
 
-        # Convert targets to BayBE objective
         objective = ObjectiveConverter.create_objective(self.campaign.targets)
 
-        # Log objective information
         if len(self.campaign.targets) == 1:
             self.logger.info(f"Created single-target objective: {self.campaign.targets[0].name}")
         else:
