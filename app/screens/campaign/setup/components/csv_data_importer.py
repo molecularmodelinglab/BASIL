@@ -340,22 +340,24 @@ class CSVDataImporter:
                         row_has_errors = True
                         # Keep original value for display
                         validated_row[param.name] = raw_value
-            
+
                 if self.campaign.targets:
                     for target in self.campaign.targets:
                         if target.name in validated_row:
                             raw_target_value = validated_row[target.name]
-                            
+
                             if raw_target_value is None or str(raw_target_value).strip() == "":
                                 validated_row[target.name] = None
                                 continue
-                            
+
                             # Convert target value to float
                             try:
                                 converted_target = float(str(raw_target_value).strip())
                                 validated_row[target.name] = converted_target
-                            except (ValueError, TypeError) as e:
-                                result.add_cell_error(row_index, target.name, f"Invalid numeric value: {raw_target_value}")
+                            except (ValueError, TypeError):
+                                result.add_cell_error(
+                                    row_index, target.name, f"Invalid numeric value: {raw_target_value}"
+                                )
                                 row_has_errors = True
                                 validated_row[target.name] = raw_target_value
 
