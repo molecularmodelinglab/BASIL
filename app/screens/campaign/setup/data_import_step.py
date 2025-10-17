@@ -330,8 +330,6 @@ class DataImportStep(BaseStep):
                 import pandas as pd
 
                 df = pd.DataFrame(self.valid_imported_data)
-                print(df)
-                print(df.dtypes)
 
                 # Add measurements to BayBe campaign
                 baybe_service.baybe_campaign.add_measurements(df, numerical_measurements_must_be_within_tolerance=False)
