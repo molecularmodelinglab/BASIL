@@ -18,7 +18,7 @@ from app.models.campaign import Campaign
 from app.models.enums import BOSurrogateModel
 
 
-def get_surrogate_model(campaign: Campaign) -> Dict[str, Optional[str]]:
+def get_surrogate_model(campaign: Campaign) -> Optional[object]:
     """Get the surrogate model for a given campaign."""
     if campaign.surrogate_model == BOSurrogateModel.GAUSSIAN_PROCESS_DEFAULT.value:
         return GaussianProcessSurrogate()
