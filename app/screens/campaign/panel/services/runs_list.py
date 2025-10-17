@@ -275,6 +275,7 @@ class RunsListScreen(BaseWidget):
             item = self.content_layout.takeAt(0)
             if widget := item.widget():
                 widget.setParent(None)
+                #Could be widget.deleteLater()
 
         if self.runs_data:
             self.content_layout.addWidget(self._create_runs_list())
