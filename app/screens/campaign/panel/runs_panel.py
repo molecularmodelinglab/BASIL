@@ -151,15 +151,14 @@ class RunsPanel(BaseWidget):
         self.current_state = self.RUNS_LIST_STATE
 
         # Create or update runs list widget
-        if self.runs_list_widget:
-            self.stacked_widget.removeWidget(self.runs_list_widget)
-            self.runs_list_widget.setParent(None)
+        if self.runs_list_widget is None:
+            self.runs_list_widget = RunsListScreen(runs_data)
+            self.runs_list_widget.run_selected.connect(self._handle_run_selected)
+            self.runs_list_widget.new_run_requested.connect(self._handle_generate_new_run)
+            self.stacked_widget.addWidget(self.runs_list_widget)
+        else:
+            self.runs_list_widget.update_runs_data(runs_data)
 
-        self.runs_list_widget = RunsListScreen(runs_data)
-        self.runs_list_widget.run_selected.connect(self._handle_run_selected)
-        self.runs_list_widget.new_run_requested.connect(self._handle_generate_new_run)
-
-        self.stacked_widget.addWidget(self.runs_list_widget)
         self.stacked_widget.setCurrentWidget(self.runs_list_widget)
 
     def _switch_to_generation_progress_state(self, experiment_count: int, is_first_run: bool):
