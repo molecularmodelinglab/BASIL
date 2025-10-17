@@ -116,7 +116,7 @@ class BayBeIntegrationService:
             try:
                 self.logger.info("Saving BayBE campaign state")
                 with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
-                    json.dump(self.baybe_campaign.to_json(), f, ensure_ascii=False, indent=4)
+                    f.write(self.baybe_campaign.to_json())
             except Exception as e:
                 self.logger.error(f"Error saving BayBE campaign state: {str(e)}")
 
@@ -124,7 +124,7 @@ class BayBeIntegrationService:
         """Load the saved state of the BayBE campaign."""
         try:
             with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
-                campaign_data = json.load(f)
+                campaign_data = f.read()
                 self.baybe_campaign = BayBeCampaign.from_json(campaign_data)
         except FileNotFoundError:
             self.logger.warning("No saved BayBE campaign state found")
@@ -214,7 +214,7 @@ class BayBeIntegrationService:
             self.logger.info(f"Updating BayBE campaign with {len(latest_data)} existing data points")
             try:
                 self.baybe_campaign.add_measurements(latest_data, numerical_measurements_must_be_within_tolerance=False)
-                self.logger.info("Successfully updateds BayBE campaign with existing data")
+                self.logger.info("Successfully updated BayBE campaign with existing data")
             except Exception as e:
                 self.logger.error(f"Error adding measurements to BayBE campaign: {str(e)}")
         if self.baybe_campaign is None:
