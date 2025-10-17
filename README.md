@@ -16,15 +16,14 @@ A crossplatform GUI that helps research teams design, run, and iterate on labora
 - [Resources](#resources)
 
 ## Overview
-BASIL provides a modern graphical interface for standing up Bayesian experiment campaigns without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 and ships in an **alpha** state while we continue to expand the user experience and model coverage.
+BASIL provides a modern graphical interface for machine learning guided experimention without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 and ships in an **alpha** state while we continue to expand the user experience and model coverage.
 
 ## Key features
 - **Workspace management** – create, open, and remember project workspaces with persistent recent history.
-- **Campaign lifecycle** – a multi-step wizard to capture campaign metadata, targets, parameters, and initial datasets.
 - **Rich parameter authoring** – continuous, discrete, categorical, fixed, and chemistry (SMILES) parameters with constraint validation and templated CSV export.
 - **Data import & validation** – generate CSV templates, preview imported data, and highlight schema mismatches before optimization.
 - **Bayesian experiment planning** – integrate with BayBE for single- or multi-objective optimization, including desirability blending and surrogate/acquisition tuning.
-- **Campaign dashboard** – tabbed Runs, Parameters, and Settings views with run history, logs, rename/delete actions, and quick navigation back to the workspace home screen.
+- **Campaign dashboard** –  Runs, Parameters, and Settings views with run history, logs.
 - **Logging & provenance** – per-campaign log files and run outputs saved alongside workspace assets for auditability.
 
 ## Quick start
@@ -60,7 +59,6 @@ python main.py
 3. **Seed data (optional)** – import historical results via CSV, validate against constraints, and preview the dataset before continuing.
 4. **optimize** – use the campaign panel to request new experiment suggestions powered by BayBE. Logs and generated batches are written to the workspace for later review.
 
-Sample workspaces are available in the `test_workspace/` directory if you want to explore the UI without starting from scratch.
 
 ## Workspaces & data
 - Each workspace contains:
