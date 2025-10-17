@@ -6,7 +6,6 @@ from app.models.enums import TargetTransformation
 
 def test_get_transformation_identity():
     t = get_transformation(TargetTransformation.LINEAR.value)
-    # IdentityTransformation has __class__.__name__ = 'IdentityTransformation'
     assert t.__class__.__name__ == "IdentityTransformation"
 
 

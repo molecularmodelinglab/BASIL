@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 
 from app.core.base import BaseStep
 from app.models.campaign import Campaign, Target
-from app.models.enums import TargetMode, TargetTransformation
+from app.models.enums import BOAcquisitionFunction, BOSurrogateModel, TargetMode, TargetTransformation
 from app.shared.components.buttons import DangerButton, PrimaryButton
 from app.shared.components.dialogs import ErrorDialog
 from app.shared.components.headers import MainHeader, SectionHeader
@@ -240,6 +240,8 @@ class CampaignInfoStep(BaseStep):
     TARGETS_LABEL = "Targets/Objectives:"
     ADD_TARGET_BUTTON_TEXT = "Add Another Target"
     ADD_TARGET_BUTTON_TOOLTIP = "Add a new target to the campaign"
+    SURROGATE_MODEL_LABEL = "Surrogate Model:"
+    ACQUISITION_FUNCTION_LABEL = "Acquisition Function:"
 
     # Object Name Constants
     FORM_INPUT_OBJECT_NAME = "FormInput"
@@ -312,6 +314,24 @@ class CampaignInfoStep(BaseStep):
         # Target section
         self._create_targets_section(form_layout)
 
+        # Surrogate model section
+        self.surrogate_combo = QComboBox()
+        self.surrogate_combo.setObjectName("FormInput")
+        for model in BOSurrogateModel:
+            self.surrogate_combo.addItem(model.display_name, model.value)
+        surrogate_label = SectionHeader(self.SURROGATE_MODEL_LABEL)
+        surrogate_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
+        form_layout.addRow(surrogate_label, self.surrogate_combo)
+
+        # Acquisition function section
+        self.acquisition_combo = QComboBox()
+        self.acquisition_combo.setObjectName("FormInput")
+        for func in BOAcquisitionFunction:
+            self.acquisition_combo.addItem(func.display_name, func.value)
+        acquisition_label = SectionHeader(self.ACQUISITION_FUNCTION_LABEL)
+        acquisition_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
+        form_layout.addRow(acquisition_label, self.acquisition_combo)
+
     def _create_targets_section(self, form_layout):
         """Create targets configuration section."""
         targets_widget = QWidget()
@@ -368,7 +388,6 @@ class CampaignInfoStep(BaseStep):
         header_layout.setSpacing(5)
 
         headers = ["Name", "Mode", "Min", "Max", "Transform", "Weight", ""]
-        # widths = [120, 120, 120, 100, 100, 100, 30]
 
         for header in headers:
             label = QLabel(header)

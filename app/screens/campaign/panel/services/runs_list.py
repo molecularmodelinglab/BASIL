@@ -48,7 +48,19 @@ class RunCard(Card):
         run_title.setFont(run_font)
         header_layout.addWidget(run_title)
 
-        status = self.run_data.get("status", "completed")
+        # Compute completion to infer status
+        experiments_count = len(self.run_data.get("experiments", []))
+        completed_count = sum(
+            1
+            for exp in self.run_data.get("experiments", [])
+            if any(
+                target["name"] in exp and exp[target["name"]] is not None for target in self.run_data.get("targets", [])
+            )
+        )
+        completion_percentage = (completed_count / experiments_count) * 100 if experiments_count > 0 else 0
+
+        # Derive status from completion progress
+        status = "pending" if completion_percentage < 100 else "completed"
         status_label = QLabel(status.title())
         status_label.setObjectName(f"RunStatus{status.title()}")
         status_label.setStyleSheet(self._get_status_style(status))
@@ -67,15 +79,6 @@ class RunCard(Card):
         header_layout.addWidget(date_label)
 
         layout.addLayout(header_layout)
-
-        experiments_count = len(self.run_data.get("experiments", []))
-        completed_count = sum(
-            1
-            for exp in self.run_data.get("experiments", [])
-            if any(
-                target["name"] in exp and exp[target["name"]] is not None for target in self.run_data.get("targets", [])
-            )
-        )
 
         details_text = f"{experiments_count} experiments"
         if completed_count > 0:
@@ -100,7 +103,6 @@ class RunCard(Card):
             progress_label.setStyleSheet("color: #666; font-size: 11px;")
             progress_layout.addWidget(progress_label)
 
-            completion_percentage = (completed_count / experiments_count) * 100
             progress_text = f"{completion_percentage:.0f}% ({completed_count}/{experiments_count})"
             progress_value = QLabel(progress_text)
             progress_value.setStyleSheet("color: #444; font-size: 11px; font-weight: bold;")

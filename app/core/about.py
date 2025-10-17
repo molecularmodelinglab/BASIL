@@ -15,9 +15,7 @@ PROGRAMMERS_DEFAULT: List[str] = [
 ]
 
 INSTITUTION_DEFAULT = (
-    "Laboratory for Molecular Modelling, "
-    "Eshelman School of Pharmacy, "
-    "University of North Carolina at Chapel Hill, USA"
+    "Laboratory for Molecular Modelling, Eshelman School of Pharmacy, University of North Carolina at Chapel Hill, USA"
 )
 
 

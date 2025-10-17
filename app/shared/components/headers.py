@@ -1,5 +1,5 @@
 """
-Reusable header components for TuneX application.
+Reusable header components for the application.
 """
 
 from PySide6.QtCore import Qt

@@ -23,7 +23,7 @@ def test_select_workspace_screen_init(app, qtbot):
     screen = SelectWorkspaceScreen()
     qtbot.addWidget(screen)
 
-    assert screen.windowTitle() == "TuneX - Select Workspace"
+    assert screen.windowTitle() == "BASIL - Select Workspace"
 
 
 def test_recent_workspaces_section_not_shown_when_no_recent_workspaces(app, qtbot):

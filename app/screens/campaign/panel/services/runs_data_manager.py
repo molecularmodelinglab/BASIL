@@ -80,11 +80,13 @@ class RunsDataManager:
             1 for exp in experiments if any(exp.get(target_name) is not None for target_name in target_names)
         )
 
+        status = "completed" if completed_count == len(experiments) and len(experiments) > 0 else "pending"
+
         new_run = {
             "run_id": str(uuid4()),
             "run_number": run_number,
             "campaign_id": self.campaign_id,
-            "status": "completed",
+            "status": status,
             "experiments": experiments,
             "targets": [{"name": target.name, "mode": target.mode} for target in campaign.targets],
             "created_at": datetime.now(),

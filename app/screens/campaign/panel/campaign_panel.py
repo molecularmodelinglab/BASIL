@@ -23,7 +23,7 @@ class CampaignPanelScreen(BaseScreen):
     Manages navigation between Runs, Parameters, and Settings tabs.
     """
 
-    APP_TITLE = "TuneX"
+    APP_TITLE = "BASIL"
     HOME_BUTTON_TEXT = "Home"
     RUNS_TAB_TEXT = "Runs"
     PARAMETERS_TAB_TEXT = "Parameters"
@@ -79,7 +79,7 @@ class CampaignPanelScreen(BaseScreen):
         layout = QHBoxLayout(header_widget)
         layout.setContentsMargins(*self.HEADER_MARGINS)
 
-        # TuneX title
+        # BASIL title
         title_label = QLabel(self.APP_TITLE)
         title_font = QFont()
         title_font.setPointSize(16)

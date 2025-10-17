@@ -7,10 +7,12 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtWidgets import QFileDialog, QVBoxLayout
 
+from app.bayesopt.baybe_service import BayBeService
 from app.core.base import BaseStep
 from app.models.campaign import Campaign
 from app.models.parameters import ParameterSerializer
 from app.models.parameters.base import BaseParameter
+from app.screens.campaign.panel.services.runs_data_manager import RunsDataManager
 from app.shared.components.dialogs import ErrorDialog, InfoDialog
 from app.shared.components.headers import MainHeader, SectionHeader
 
@@ -250,6 +252,8 @@ class DataImportStep(BaseStep):
             self.campaign.initial_dataset = self.valid_imported_data.copy()
 
             self.logger.info(f"Successfully saved {len(self.valid_imported_data)} valid rows to campaign")
+
+            self._seed_initial_run()
         except Exception as e:
             ErrorDialog.show_error(self.VALIDATION_ERROR_TITLE, self.SAVE_ERROR_MESSAGE.format(e), parent=self)
 
@@ -272,8 +276,72 @@ class DataImportStep(BaseStep):
                 self._update_preview()
                 self.logger.info(f"Loaded {len(self.valid_imported_data)} rows of valid data")
 
+                self._seed_initial_run()
+
         except Exception as e:
             ErrorDialog.show_error(self.IMPORT_ERROR_TITLE, self.LOAD_ERROR_MESSAGE.format(e), parent=self)
+
+    def _seed_initial_run(self) -> None:
+        """
+        Seed Run 1 from the imported valid data if there are no runs yet.
+        Also initializes the BayBe campaign with the imported data.
+        """
+        try:
+            if not self.valid_imported_data:
+                self.logger.info("No valid imported data available to seed runs")
+                return
+
+            workspace_path = self.campaign.workspace_path
+            campaign_id = self.campaign.id
+
+            if not workspace_path or not campaign_id:
+                self.logger.warning("Cannot seed runs: missing workspace_path or campaign_id on Campaign")
+                return
+
+            manager = RunsDataManager(workspace_path, campaign_id)
+
+            if manager.get_run_count() == 0:
+                manager.add_run(experiments=self.valid_imported_data, campaign=self.campaign)
+                self.logger.info("Seeded initial Run 1 from imported data")
+
+                self._initialize_baybe_with_imported_data(workspace_path)
+            else:
+                self.logger.info("Runs already exist; skipping seed")
+
+        except Exception as e:
+            # Non-fatal: log and show error, but do not block workflow
+            self.logger.exception("Failed to seed initial run from imported data")
+            ErrorDialog.show_error(self.IMPORT_ERROR_TITLE, f"Failed to seed initial run: {e}", parent=self)
+
+    def _initialize_baybe_with_imported_data(self, workspace_path: str) -> None:
+        """
+        Initialize BayBe campaign and add imported data as measurements.
+        This ensures the BayBe campaign is ready for future run generation.
+        """
+        try:
+            self.logger.info("Initializing BayBe campaign with imported data")
+
+            baybe_service = BayBeService(campaign=self.campaign, workspace_path=workspace_path)
+
+            baybe_service._initialize_baybe_campaign()
+
+            # Add imported data to the BayBe campaign
+            if baybe_service.baybe_campaign is not None:
+                import pandas as pd
+
+                df = pd.DataFrame(self.valid_imported_data)
+
+                # Add measurements to BayBe campaign
+                baybe_service.baybe_campaign.add_measurements(df, numerical_measurements_must_be_within_tolerance=False)
+                self.logger.info(f"Added {len(df)} measurements to BayBe campaign")
+
+                baybe_service._save_baybe_campaign_state()
+                self.logger.info("Saved initialized BayBe campaign state")
+            else:
+                self.logger.warning("BayBe campaign was not properly initialized")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize BayBe campaign with imported data: {e}")
 
     def _validate_data(self) -> None:
         """Re-validate the current imported data."""

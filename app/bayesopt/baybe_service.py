@@ -9,10 +9,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 from baybe import Campaign as BayBeCampaign
+from baybe.recommenders import (
+    BotorchRecommender,
+    RandomRecommender,
+    TwoPhaseMetaRecommender,
+)
 
 from app.bayesopt.objective import ObjectiveConverter
 from app.bayesopt.parameters import ParameterConverter
+from app.bayesopt.surrogate import get_surrogate_model
 from app.models.campaign import Campaign
 from app.models.parameters.base import BaseParameter
 from app.shared.constants import WorkspaceConstants
@@ -109,7 +116,7 @@ class BayBeIntegrationService:
             try:
                 self.logger.info("Saving BayBE campaign state")
                 with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
-                    json.dump(self.baybe_campaign.to_dict(), f)
+                    f.write(self.baybe_campaign.to_json())
             except Exception as e:
                 self.logger.error(f"Error saving BayBE campaign state: {str(e)}")
 
@@ -117,12 +124,48 @@ class BayBeIntegrationService:
         """Load the saved state of the BayBE campaign."""
         try:
             with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
-                campaign_data = json.load(f)
-                self.baybe_campaign = BayBeCampaign.from_dict(campaign_data)
+                campaign_data = f.read()
+                self.baybe_campaign = BayBeCampaign.from_json(campaign_data)
         except FileNotFoundError:
             self.logger.warning("No saved BayBE campaign state found")
         except Exception as e:
             self.logger.error(f"Error loading BayBE campaign state: {str(e)}")
+
+    def _load_existing_experimental_data(self) -> Optional[pd.DataFrame]:
+        """
+        Load existing experimental data from campaign folder.
+
+        Returns:
+            DataFrame with existing experimental data, or None if not found
+        """
+        try:
+            runs_dir = self.campaign_folder / self.RUNS_FOLDERNAME
+            if not runs_dir.exists():
+                return None
+
+            csv_files = list(runs_dir.glob("*.csv"))
+            if not csv_files:
+                return None
+
+            # Use the most recent CSV file in runs folder
+            latest_file = max(csv_files, key=lambda f: f.stat().st_mtime)
+            self.logger.info(f"Loading data from: {latest_file}")
+
+            df = pd.read_csv(latest_file)
+
+            target_names = ObjectiveConverter.get_target_names(self.campaign.targets)
+            missing_targets = [name for name in target_names if name not in df.columns]
+
+            if missing_targets:
+                self.logger.warning(f"Missing target columns in data: {missing_targets}")
+                for target_name in missing_targets:
+                    df[target_name] = None
+
+            return df
+
+        except Exception as e:
+            self.logger.error(f"Error loading existing data: {str(e)}")
+            return None
 
     def _initialize_baybe_campaign(self) -> None:
         """Initialize a new BayBE campaign."""
@@ -133,14 +176,11 @@ class BayBeIntegrationService:
         if validation_errors:
             raise ValueError(f"Campaign validation failed: {'; '.join(validation_errors)}")
 
-        # Convert parameters to BayBE search space
         search_space = ParameterConverter.create_search_space(self.campaign.parameters)
         self.logger.info(f"Created search space with {len(search_space.parameters)} parameters")
 
-        # Convert targets to BayBE objective
         objective = ObjectiveConverter.create_objective(self.campaign.targets)
 
-        # Log objective information
         if len(self.campaign.targets) == 1:
             self.logger.info(f"Created single-target objective: {self.campaign.targets[0].name}")
         else:
@@ -154,12 +194,29 @@ class BayBeIntegrationService:
         if multi_obj_note:
             self.logger.info(multi_obj_note)
 
-        self.baybe_campaign = BayBeCampaign(searchspace=search_space, objective=objective)
+        bo_recommender = TwoPhaseMetaRecommender(
+            initial_recommender=RandomRecommender(),
+            recommender=BotorchRecommender(
+                surrogate_model=get_surrogate_model(self.campaign),
+                acquisition_function=self.campaign.acquisition_function,
+            ),
+        )
+
+        self.baybe_campaign = BayBeCampaign(searchspace=search_space, objective=objective, recommender=bo_recommender)
 
     def _update_baybe_campaign_from_file(self) -> None:
         """Load BayBE campaign from saved state file."""
         self.logger.info("Loading BayBE campaign from saved state file")
         self._load_baybe_campaign_state()
+
+        latest_data = self._load_existing_experimental_data()
+        if latest_data is not None and self.baybe_campaign is not None:
+            self.logger.info(f"Updating BayBE campaign with {len(latest_data)} existing data points")
+            try:
+                self.baybe_campaign.add_measurements(latest_data, numerical_measurements_must_be_within_tolerance=False)
+                self.logger.info("Successfully updated BayBE campaign with existing data")
+            except Exception as e:
+                self.logger.error(f"Error adding measurements to BayBE campaign: {str(e)}")
         if self.baybe_campaign is None:
             raise RuntimeError("Failed to load BayBe campaign from file")
 

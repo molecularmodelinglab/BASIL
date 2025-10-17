@@ -6,6 +6,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit, QVBoxLayout, QWidget
 
 from app.core.base import BaseWidget
+from app.models.enums import BOAcquisitionFunction, BOSurrogateModel
 from app.screens.start.components.campaign_loader import CampaignLoader
 from app.shared.components.buttons import DangerButton, PrimaryButton
 from app.shared.components.dialogs import ConfirmationDialog, ErrorDialog, InfoDialog
@@ -100,6 +101,11 @@ class SettingsPanel(BaseWidget):
         form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form_layout.setSpacing(self.FORM_SPACING)
 
+        # Campaign ID section (read-only)
+        id_label = QLabel("Campaign ID")
+        id_label.setObjectName("FormLabel")
+        form_layout.addRow(id_label, QLabel(self.campaign.id if self.campaign else "N/A"))
+
         # Campaign name section
         name_section = self._create_name_section()
         name_label = QLabel(self.NAME_LABEL)
@@ -111,6 +117,18 @@ class SettingsPanel(BaseWidget):
         desc_label = QLabel(self.DESCRIPTION_LABEL)
         desc_label.setObjectName("FormLabel")
         form_layout.addRow(desc_label, description_section)
+
+        # Surrogate model and acquisition function (read-only)
+        if self.campaign:
+            surrogate_label = QLabel("Surrogate Model")
+            surrogate_label.setObjectName("FormLabel")
+            surrogate_value = self._get_enum_display_name(BOSurrogateModel, self.campaign.surrogate_model)
+            form_layout.addRow(surrogate_label, QLabel(surrogate_value))
+
+            acquisition_label = QLabel("Acquisition Function")
+            acquisition_label.setObjectName("FormLabel")
+            acquisition_value = self._get_enum_display_name(BOAcquisitionFunction, self.campaign.acquisition_function)
+            form_layout.addRow(acquisition_label, QLabel(acquisition_value))
 
         return form_widget
 
@@ -303,6 +321,17 @@ class SettingsPanel(BaseWidget):
         except Exception as e:
             self.logger.error(f"Error saving campaign: {e}")
             return False
+
+    @staticmethod
+    def _get_enum_display_name(enum_cls, value: str) -> str:
+        """Resolve a human-friendly display name for enum-backed string values.
+
+        Falls back to the raw value if the enum doesn't recognize it.
+        """
+        try:
+            return enum_cls.get_display_name(value)
+        except Exception:
+            return value or "N/A"
 
     def get_panel_buttons(self):
         """Return buttons specific to this panel."""

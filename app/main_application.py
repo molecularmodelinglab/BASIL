@@ -132,6 +132,7 @@ class MainApplication(QMainWindow):
         # Reset wizard state when starting new campaign
         self.campaign_wizard.reset_wizard()
         self.campaign_wizard.workspace_path = self.current_workspace
+        self.campaign_wizard.campaign.workspace_path = self.current_workspace
         self.stacked_widget.setCurrentWidget(self.campaign_wizard)
         self.setWindowTitle(self.CREATE_CAMPAIGN_WINDOW_TITLE)
 
@@ -152,7 +153,7 @@ class MainApplication(QMainWindow):
         try:
             from app.shared.components.dialogs import InfoDialog
 
-            about_text = build_about_text(app_name="")
+            about_text = build_about_text(app_name=self.DEFAULT_WINDOW_TITLE)
             InfoDialog.show_info("About BASIL", about_text, parent=self)
         except Exception as e:
             # Fallback to simple message box if styled dialog fails

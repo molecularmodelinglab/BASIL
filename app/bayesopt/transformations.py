@@ -11,6 +11,8 @@ def get_transformation(transformation_type: str) -> transformations.Transformati
         return transformations.BellTransformation()
     elif transformation_type == TargetTransformation.TRIANGULAR.value:
         return transformations.TriangularTransformation()
+    elif transformation_type == TargetTransformation.LOGARITHMIC.value:
+        return transformations.LogarithmicTransformation()
     elif transformation_type == TargetTransformation.NONE.value:
         return None
     else:

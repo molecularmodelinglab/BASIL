@@ -1,5 +1,5 @@
 """
-Reusable button components for TuneX application.
+Reusable button components for the application.
 """
 
 from PySide6.QtCore import Qt

@@ -1,5 +1,5 @@
 """
-Base classes for TuneX application screens and widgets.
+Base classes for BASIL application screens and widgets.
 """
 
 from typing import Optional
@@ -17,7 +17,7 @@ class BaseScreen(QMainWindow):
     navigation, and styling.
     """
 
-    DEFAULT_WINDOW_TITLE = "TuneX"
+    DEFAULT_WINDOW_TITLE = "BASIL"
 
     GEOMETRY = (100, 100, 1200, 700)
 
