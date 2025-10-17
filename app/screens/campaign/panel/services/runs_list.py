@@ -258,11 +258,13 @@ class RunsListScreen(BaseWidget):
         return pixmap
     
     def _build_subtitle(self) -> str:
+        """Return subtitle including run count when available."""
         if self.runs_data:
             return f"{self.SUBTITLE_TEXT} ({len(self.runs_data)} runs)"
         return self.SUBTITLE_TEXT
     
     def _refresh_view(self):
+        """Refresh the runs list view."""
         if self.subtitle_label:
             self.subtitle_label.setText(self._build_subtitle())
 
