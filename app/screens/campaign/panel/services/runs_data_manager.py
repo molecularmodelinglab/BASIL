@@ -80,7 +80,7 @@ class RunsDataManager:
             1 for exp in experiments if any(exp.get(target_name) is not None for target_name in target_names)
         )
 
-        status = "completed" if completed_count > 0 else "pending"
+        status = "completed" if completed_count == len(experiments) and len(experiments) > 0 else "pending"
 
         new_run = {
             "run_id": str(uuid4()),
