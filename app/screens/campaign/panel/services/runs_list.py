@@ -169,12 +169,13 @@ class RunsListScreen(BaseWidget):
         header_widget = self._create_header()
         main_layout.addWidget(header_widget)
 
-        if self.runs_data:
-            content_widget = self._create_runs_list()
-        else:
-            content_widget = self._create_empty_state()
+        content_holder = QWidget()
+        self.content_layout = QVBoxLayout(content_holder)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(0)
+        main_layout.addWidget(content_holder)
 
-        main_layout.addWidget(content_widget)
+        self._refresh_view()
 
     def _create_header(self) -> QWidget:
         """Create the header section."""
@@ -192,14 +193,9 @@ class RunsListScreen(BaseWidget):
         title_label.setFont(title_font)
         title_layout.addWidget(title_label)
 
-        if self.runs_data:
-            subtitle_text = f"{self.SUBTITLE_TEXT} ({len(self.runs_data)} runs)"
-        else:
-            subtitle_text = self.SUBTITLE_TEXT
-
-        subtitle_label = QLabel(subtitle_text)
-        subtitle_label.setStyleSheet("color: #666; font-size: 14px;")
-        title_layout.addWidget(subtitle_label)
+        self.subtitle_label = QLabel(self._build_subtitle())
+        self.subtitle_label.setStyleSheet("color: #666; font-size: 14px;")
+        title_layout.addWidget(self.subtitle_label)
 
         layout.addLayout(title_layout)
         layout.addStretch()
@@ -260,18 +256,37 @@ class RunsListScreen(BaseWidget):
         painter.end()
 
         return pixmap
+    
+    def _build_subtitle(self) -> str:
+        """Return subtitle including run count when available."""
+        if self.runs_data:
+            return f"{self.SUBTITLE_TEXT} ({len(self.runs_data)} runs)"
+        return self.SUBTITLE_TEXT
+    
+    def _refresh_view(self):
+        """Refresh the runs list view."""
+        if self.subtitle_label:
+            self.subtitle_label.setText(self._build_subtitle())
+
+        if not self.content_layout:
+            return
+
+        while self.content_layout.count():
+            item = self.content_layout.takeAt(0)
+            if widget := item.widget():
+                widget.setParent(None)
+                #Could be widget.deleteLater()
+
+        if self.runs_data:
+            self.content_layout.addWidget(self._create_runs_list())
+        else:
+            self.content_layout.addWidget(self._create_empty_state())
+
 
     def update_runs_data(self, runs_data: List[Dict[str, Any]]):
         """Update the runs data and refresh the display."""
         self.runs_data = runs_data or []
-
-        layout = self.layout()
-        while layout.count():
-            child = layout.takeAt(0)
-            if child.widget():
-                child.widget().setParent(None)
-
-        self._setup_widget()
+        self._refresh_view()
 
     def get_panel_buttons(self):
         """Return the panel-specific buttons."""
