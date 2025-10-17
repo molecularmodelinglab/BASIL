@@ -93,8 +93,10 @@ class MainApplication(QMainWindow):
         """Create the application menu bar with Help > About."""
         try:
             menubar: QMenuBar = self.menuBar()
+            menubar.setNativeMenuBar(True)
             help_menu: QMenu = menubar.addMenu("&Help")
             about_action = QAction("About BASIL", self)
+            about_action.setMenuRole(QAction.MenuRole.NoRole)
             about_action.triggered.connect(self._show_about_dialog)
             help_menu.addAction(about_action)
         except Exception as e:
@@ -151,7 +153,7 @@ class MainApplication(QMainWindow):
         try:
             from app.shared.components.dialogs import InfoDialog
 
-            about_text = build_about_text(app_name=self.DEFAULT_WINDOW_TITLE)
+            about_text = build_about_text(app_name="")
             InfoDialog.show_info("About BASIL", about_text, parent=self)
         except Exception as e:
             # Fallback to simple message box if styled dialog fails

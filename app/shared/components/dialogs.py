@@ -72,13 +72,14 @@ class InfoDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setModal(True)
-        self.setFixedSize(400, 200)
+        self.setMinimumSize(400, 200)
 
         self._setup_ui(title, message, button_text)
 
         # Apply styling
         self.setObjectName("InfoDialog")
         self.setStyleSheet(get_info_dialog_styles())
+        self.adjustSize()
 
     def _setup_ui(self, title: str, message: str, button_text: str):
         """Setup the dialog UI elements."""

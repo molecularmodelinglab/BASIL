@@ -98,6 +98,7 @@ class SettingsPanel(BaseWidget):
         """Create the form section with campaign name and description."""
         form_widget = QWidget()
         form_layout = QFormLayout(form_widget)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form_layout.setSpacing(self.FORM_SPACING)
 
         # Campaign ID section (read-only)

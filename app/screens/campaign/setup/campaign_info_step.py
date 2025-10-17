@@ -291,6 +291,7 @@ class CampaignInfoStep(BaseStep):
         """Create form with all input fields."""
         form_layout = QFormLayout()
         form_layout.setSpacing(self.FORM_SPACING)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         parent_layout.addLayout(form_layout)
 
         # Campaign name
