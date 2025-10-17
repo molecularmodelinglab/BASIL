@@ -1,5 +1,5 @@
 # BASIL (Bayesian Approach to Scientific Iteration and Learning)
-A crossplatform GUI that helps research teams design, run, and iterate on laboratory campaigns using Bayesian optimization.
+A cross-platform GUI that helps research teams design, run, and iterate on laboratory campaigns using Bayesian optimization.
 
 <img src="assets/logo.png" height=200>
 
@@ -16,7 +16,7 @@ A crossplatform GUI that helps research teams design, run, and iterate on labora
 - [Resources](#resources)
 
 ## Overview
-BASIL provides a modern graphical interface for machine learning guided experimention without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 and ships in an **alpha** state while we continue to expand the user experience and model coverage.
+BASIL provides a modern graphical interface for machine learning guided experimentation without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 and ships in an **alpha** state while we continue to expand the user experience and model coverage.
 
 ## Key features
 - **Workspace management** – create, open, and remember project workspaces with persistent recent history.
