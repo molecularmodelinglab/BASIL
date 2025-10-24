@@ -35,13 +35,13 @@ jobs:
 
       - name: Build application
         run: |
-          poetry run python build.py --onefile --version ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }} --tag-output
+          poetry run python build.py --version ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }} --tag-output
 
       - name: Install InstallForge
         run: |
           # Download and install InstallForge silently
           Write-Host "Downloading InstallForge..."
-          curl -L -o installforge.exe "https://www.installforge.net/downloads/InstallForge-setup.exe"
+          curl -L -o installforge.exe "https://installforge.net/downloads/?i=IFSetup"
 
           # Check if download was successful
           if (!(Test-Path "installforge.exe")) {
@@ -52,6 +52,14 @@ jobs:
           # Check file integrity
           $fileInfo = Get-Item "installforge.exe"
           Write-Host "Downloaded file size: $($fileInfo.Length) bytes"
+
+          # Verify we got a reasonable file size (should be several MB)
+          if ($fileInfo.Length -lt 1000000) {
+            Write-Warning "Downloaded file is suspiciously small. Content:"
+            Get-Content "installforge.exe" -First 10
+            Write-Error "Downloaded file is too small to be a valid installer"
+            exit 1
+          }
 
           # Unblock the file (needed for downloaded executables)
           Unblock-File -Path "installforge.exe"
