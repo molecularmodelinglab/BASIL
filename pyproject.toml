@@ -36,6 +36,7 @@ ruff = "*"
 pytest = "*"
 pytest-cov = "*"
 pytest-qt = "*"
+pyinstaller = "*"
 
 [build-system]
 requires = ["poetry-core>=1.5.0"]

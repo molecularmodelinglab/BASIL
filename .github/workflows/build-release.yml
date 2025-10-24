@@ -85,9 +85,6 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    strategy:
-      matrix:
-        architecture: [x64, arm64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -126,7 +123,7 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.architecture }}
+          name: macos-universal
           path: dist/
 
   create-release:
@@ -143,7 +140,6 @@ jobs:
           files: |
             windows-x86/*
             windows-x64/*
-            macos-x64/*
-            macos-arm64/*
+            macos-universal/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
