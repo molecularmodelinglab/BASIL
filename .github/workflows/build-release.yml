@@ -35,12 +35,45 @@ jobs:
         run: |
           poetry run python build.py --onefile --version ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }} --tag-output
 
-      - name: Create installer with InstallForge
+      - name: Install InstallForge
         run: |
-          # This is a placeholder - you'll need to adapt this to your InstallForge setup
-          # Example command might look like:
-          # "& 'C:\Program Files (x86)\InstallForge\ISCC.exe' setup.iss"
-          echo "Create installer with InstallForge here"
+          # Download and install InstallForge silently
+          # Note: You may need to update the download URL to the latest version
+          curl -L -o installforge.exe "https://www.installforge.net/downloads/InstallForge-setup.exe"
+          Start-Process -FilePath ".\installforge.exe" -ArgumentList "/S" -Wait
+
+      - name: Create InstallForge script
+        run: |
+          # Create a basic InstallForge script (.iss file)
+          # This is a simplified example - you may need to customize it for your application
+          echo "[Setup]" > setup.iss
+          echo "AppName=BASIL" >> setup.iss
+          echo "AppVersion=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}" >> setup.iss
+          echo "DefaultDirName={pf}\BASIL" >> setup.iss
+          echo "DefaultGroupName=BASIL" >> setup.iss
+          echo "OutputDir=." >> setup.iss
+          echo "OutputBaseFilename=BASIL-setup" >> setup.iss
+          echo "Compression=lzma" >> setup.iss
+          echo "SolidCompression=yes" >> setup.iss
+          echo "" >> setup.iss
+          echo "[Files]" >> setup.iss
+          echo "Source: \"dist\BASIL-v${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}.exe\"; DestDir: \"{app}\"; Flags: ignoreversion" >> setup.iss
+          echo "" >> setup.iss
+          echo "[Icons]" >> setup.iss
+          echo "Name: \"{group}\BASIL\"; Filename: \"{app}\BASIL-v${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}.exe\"" >> setup.iss
+          echo "Name: \"{commondesktop}\BASIL\"; Filename: \"{app}\BASIL-v${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}.exe\"; Tasks: desktopicon" >> setup.iss
+          echo "" >> setup.iss
+          echo "[Tasks]" >> setup.iss
+          echo "Name: \"desktopicon\"; Description: \"{cm:CreateDesktopIcon}\"; GroupDescription: \"{cm:AdditionalIcons}\"; Flags: unchecked" >> setup.iss
+
+      - name: Build Windows installer with InstallForge
+        run: |
+          # Run InstallForge to create the installer
+          # Adjust the path if InstallForge installs to a different location
+          & "C:\Program Files (x86)\InstallForge\ISCC.exe" "setup.iss"
+
+          # Copy the installer to dist folder for artifact upload
+          Copy-Item "BASIL-setup.exe" -Destination "dist\"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v3
