@@ -141,12 +141,14 @@ jobs:
           # Install create-dmg tool
           brew install create-dmg
 
+          # Define version variable
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
           # Create a clean directory for DMG creation
           mkdir -p dist/dmg
           cp -r "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
 
           # Create DMG file
-          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           create-dmg \
             --volname "BASIL" \
             "dist/BASIL-v$VERSION.dmg" \
