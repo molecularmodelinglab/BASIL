@@ -141,16 +141,16 @@ jobs:
           # Install create-dmg tool
           brew install create-dmg
 
+          # Create a clean directory for DMG creation
+          mkdir -p dist/dmg
+          cp -r "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
+
           # Create DMG file
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           create-dmg \
             --volname "BASIL" \
-            --window-pos 200 120 \
-            --window-size 800 400 \
-            --icon-size 100 \
-            --app-drop-link 600 185 \
             "dist/BASIL-v$VERSION.dmg" \
-            "dist/BASIL.app"
+            "dist/dmg/"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
