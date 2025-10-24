@@ -40,9 +40,33 @@ jobs:
       - name: Install InstallForge
         run: |
           # Download and install InstallForge silently
-          # Note: You may need to update the download URL to the latest version
+          Write-Host "Downloading InstallForge..."
           curl -L -o installforge.exe "https://www.installforge.net/downloads/InstallForge-setup.exe"
-          Start-Process -FilePath ".\installforge.exe" -ArgumentList "/S" -Wait
+
+          # Check if download was successful
+          if (!(Test-Path "installforge.exe")) {
+            Write-Error "Failed to download InstallForge"
+            exit 1
+          }
+
+          # Check file integrity
+          $fileInfo = Get-Item "installforge.exe"
+          Write-Host "Downloaded file size: $($fileInfo.Length) bytes"
+
+          # Unblock the file (needed for downloaded executables)
+          Unblock-File -Path "installforge.exe"
+
+          # Install silently
+          Write-Host "Installing InstallForge..."
+          Start-Process -FilePath ".\installforge.exe" -ArgumentList "/S" -Wait -NoNewWindow
+
+          # Verify installation
+          if (Test-Path "C:\Program Files (x86)\InstallForge\ISCC.exe") {
+            Write-Host "InstallForge installed successfully"
+          } else {
+            Write-Error "InstallForge installation failed"
+            exit 1
+          }
 
       - name: Create InstallForge script
         run: |
