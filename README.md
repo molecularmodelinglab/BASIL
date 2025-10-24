@@ -113,6 +113,12 @@ Use `build.py` to create platform-specific bundles via PyInstaller:
 poetry run python build.py --onefile --version 0.1.0 --tag-output
 ```
 
+**macOS Performance Note**: On macOS, using the `--onefile` option may result in slower startup times due to the need to extract dependencies on each launch. For better performance, consider using the default `--onedir` mode:
+
+```powershell
+poetry run python build.py --version 1.0.0 --tag-output
+```
+
 The script handles icons, Windows version info, macOS bundle metadata, and optional UPX compression. Generated artefacts land in `dist/`, with intermediate files in `build/`.
 
 ## Resources
