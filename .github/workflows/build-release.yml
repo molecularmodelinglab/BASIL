@@ -9,6 +9,8 @@ on:
         description: 'Version to build (e.g., 1.0.0)'
         required: true
         default: '1.0.0'
+  pull_request:
+    branches: [main]
 
 jobs:
   build-windows:
