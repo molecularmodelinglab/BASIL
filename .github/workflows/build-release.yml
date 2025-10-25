@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (Universal Binary)
 
 on:
   release:
@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -37,92 +37,53 @@ jobs:
         run: |
           poetry run python build.py --version ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }} --tag-output
 
-      - name: Install InstallForge
+      - name: Create Inno Setup script
         run: |
-          # Download and install InstallForge silently
-          Write-Host "Downloading InstallForge..."
-          curl -L -o installforge.exe "https://installforge.net/downloads/?i=IFSetup"
+          $version = "${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}"
+          @"
+          [Setup]
+          AppName=BASIL
+          AppVersion=$version
+          AppPublisher=BASIL
+          DefaultDirName={autopf}\BASIL
+          DefaultGroupName=BASIL
+          OutputDir=dist
+          OutputBaseFilename=BASIL-setup-${{ matrix.architecture }}
+          Compression=lzma2
+          SolidCompression=yes
+          ArchitecturesAllowed=${{ matrix.architecture == 'x64' && 'x64' || '' }}
+          ArchitecturesInstallIn64BitMode=${{ matrix.architecture == 'x64' && 'x64' || '' }}
 
-          # Check if download was successful
-          if (!(Test-Path "installforge.exe")) {
-            Write-Error "Failed to download InstallForge"
-            exit 1
-          }
+          [Files]
+          Source: "dist\BASIL-v$version.exe"; DestDir: "{app}"; Flags: ignoreversion
 
-          # Check file integrity
-          $fileInfo = Get-Item "installforge.exe"
-          Write-Host "Downloaded file size: $($fileInfo.Length) bytes"
+          [Icons]
+          Name: "{group}\BASIL"; Filename: "{app}\BASIL-v$version.exe"
+          Name: "{autodesktop}\BASIL"; Filename: "{app}\BASIL-v$version.exe"; Tasks: desktopicon
 
-          # Verify we got a reasonable file size (should be several MB)
-          if ($fileInfo.Length -lt 1000000) {
-            Write-Warning "Downloaded file is suspiciously small. Content:"
-            Get-Content "installforge.exe" -First 10
-            Write-Error "Downloaded file is too small to be a valid installer"
-            exit 1
-          }
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          "@ | Out-File -FilePath "setup.iss" -Encoding ASCII
 
-          # Unblock the file (needed for downloaded executables)
-          Unblock-File -Path "installforge.exe"
-
-          # Install silently
-          Write-Host "Installing InstallForge..."
-          Start-Process -FilePath ".\installforge.exe" -ArgumentList "/S" -Wait -NoNewWindow
-
-          # Verify installation
-          if (Test-Path "C:\Program Files (x86)\InstallForge\ISCC.exe") {
-            Write-Host "InstallForge installed successfully"
-          } else {
-            Write-Error "InstallForge installation failed"
-            exit 1
-          }
-
-      - name: Create InstallForge script
+      - name: Build Windows installer with Inno Setup
         run: |
-          # Create a basic InstallForge script (.iss file)
-          # This is a simplified example - you may need to customize it for your application
-          echo "[Setup]" > setup.iss
-          echo "AppName=BASIL" >> setup.iss
-          echo "AppVersion=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}" >> setup.iss
-          echo "DefaultDirName={pf}\BASIL" >> setup.iss
-          echo "DefaultGroupName=BASIL" >> setup.iss
-          echo "OutputDir=." >> setup.iss
-          echo "OutputBaseFilename=BASIL-setup" >> setup.iss
-          echo "Compression=lzma" >> setup.iss
-          echo "SolidCompression=yes" >> setup.iss
-          echo "" >> setup.iss
-          echo "[Files]" >> setup.iss
-          echo "Source: \"dist\BASIL-v${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}.exe\"; DestDir: \"{app}\"; Flags: ignoreversion" >> setup.iss
-          echo "" >> setup.iss
-          echo "[Icons]" >> setup.iss
-          echo "Name: \"{group}\BASIL\"; Filename: \"{app}\BASIL-v${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}.exe\"" >> setup.iss
-          echo "Name: \"{commondesktop}\BASIL\"; Filename: \"{app}\BASIL-v${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}.exe\"; Tasks: desktopicon" >> setup.iss
-          echo "" >> setup.iss
-          echo "[Tasks]" >> setup.iss
-          echo "Name: \"desktopicon\"; Description: \"{cm:CreateDesktopIcon}\"; GroupDescription: \"{cm:AdditionalIcons}\"; Flags: unchecked" >> setup.iss
-
-      - name: Build Windows installer with InstallForge
-        run: |
-          # Run InstallForge to create the installer
-          # Adjust the path if InstallForge installs to a different location
-          & "C:\Program Files (x86)\InstallForge\ISCC.exe" "setup.iss"
-
-          # Copy the installer to dist folder for artifact upload
-          Copy-Item "BASIL-setup.exe" -Destination "dist\"
+          # Inno Setup is pre-installed on GitHub runners
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.architecture }}
-          path: dist/
+          path: dist/BASIL-setup-${{ matrix.architecture }}.exe
 
-  build-macos:
-    runs-on: macos-latest
+  build-macos-arm64:
+    runs-on: macos-14  # Apple Silicon runner
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -132,48 +93,151 @@ jobs:
           pip install poetry
           poetry install
 
-      - name: Build application
+      - name: Build ARM64 application
         run: |
-          poetry run python build.py --version ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }} --tag-output --bundle-id com.basil.app
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          poetry run python build.py --version $VERSION --tag-output --bundle-id com.basil.app
+
+          # Rename to indicate architecture
+          mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-arm64.app"
+
+      - name: Upload ARM64 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-build
+          path: dist/BASIL-*-arm64.app
+
+  build-macos-intel:
+    runs-on: macos-13  # Intel runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+      - name: Build x86_64 application
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          poetry run python build.py --version $VERSION --tag-output --bundle-id com.basil.app
+
+          # Rename to indicate architecture
+          mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-x86_64.app"
+
+      - name: Upload Intel build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-build
+          path: dist/BASIL-*-x86_64.app
+
+  create-universal-binary:
+    needs: [build-macos-arm64, build-macos-intel]
+    runs-on: macos-14
+    steps:
+      - name: Download ARM64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64-build
+          path: dist-arm64/
+
+      - name: Download Intel build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-intel-build
+          path: dist-intel/
+
+      - name: Create Universal Binary
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          # Find the app bundles
+          ARM64_APP=$(find dist-arm64 -name "*.app" -type d)
+          INTEL_APP=$(find dist-intel -name "*.app" -type d)
+
+          echo "ARM64 app: $ARM64_APP"
+          echo "Intel app: $INTEL_APP"
+
+          # Create universal app structure
+          mkdir -p dist
+          cp -R "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
+
+          # Get the executable name
+          EXEC_NAME=$(basename "dist/BASIL-v${VERSION}.app/Contents/MacOS/"*)
+
+          echo "Executable name: $EXEC_NAME"
+
+          # Create universal binary using lipo
+          lipo -create \
+            "$ARM64_APP/Contents/MacOS/$EXEC_NAME" \
+            "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
+            -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # Verify the universal binary
+          echo "Universal binary info:"
+          lipo -info "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # Verify architectures
+          file "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+      - name: Sign Universal Binary
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          # Ad-hoc signing
+          codesign --force --deep --sign - "dist/BASIL-v${VERSION}.app"
+
+          # Verify signature
+          codesign --verify --verbose "dist/BASIL-v${VERSION}.app"
+
+      - name: Install DMG creator
+        run: brew install create-dmg
 
       - name: Create DMG
         run: |
-          # Install create-dmg tool
-          brew install create-dmg
-
-          # Define version variable
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
-          # Create a clean directory for DMG creation
+          # Create DMG directory
           mkdir -p dist/dmg
           cp -r "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
 
-          # Create DMG file
+          # Create DMG with minimal parameters
           create-dmg \
-            --volname "BASIL" \
-            "dist/BASIL-v$VERSION.dmg" \
+            "dist/BASIL-v${VERSION}-universal.dmg" \
             "dist/dmg/"
 
-      - name: Upload macOS artifacts
+      - name: Upload macOS universal artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-universal
-          path: dist/
+          path: dist/*.dmg
 
   create-release:
-    needs: [build-windows, build-macos]
+    needs: [build-windows, create-universal-binary]
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
+      - name: List downloaded artifacts for debugging
+        run: |
+          echo "Downloaded artifacts:"
+          find . -type f
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
-        if: github.event_name == 'release'
         with:
           files: |
-            windows-x86/*
-            windows-x64/*
-            macos-universal/*
+            windows-x86/*.exe
+            windows-x64/*.exe
+            macos-universal/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
