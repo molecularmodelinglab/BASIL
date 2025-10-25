@@ -123,15 +123,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install poetry
-          # Export deps to requirements.txt for Intel compatibility
-          poetry export -f requirements.txt --output requirements.txt --without-hashes
-          pip install -r requirements.txt
-          pip install pyinstaller
+          poetry install
 
       - name: Build x86_64 application
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-          python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
+          poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
 
           # Rename to indicate architecture
           mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-x86_64.app"
