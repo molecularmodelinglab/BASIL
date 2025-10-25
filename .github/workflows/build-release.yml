@@ -1,0 +1,270 @@
+name: Build and Release (Universal Binary)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        architecture: [x86, x64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+      - name: Build application
+        run: |
+          poetry run python build.py --version ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }} --tag-output --clean
+
+      - name: Create Inno Setup script
+        run: |
+          $version = "${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}"
+          $appFolder = "dist\BASIL-v$version"
+
+          @"
+          [Setup]
+          AppName=BASIL
+          AppVersion=$version
+          AppPublisher=BASIL
+          DefaultDirName={autopf}\BASIL
+          DefaultGroupName=BASIL
+          OutputDir=dist
+          OutputBaseFilename=BASIL-setup-${{ matrix.architecture }}
+          Compression=lzma2
+          SolidCompression=yes
+          ArchitecturesAllowed=${{ matrix.architecture == 'x64' && 'x64' || '' }}
+          ArchitecturesInstallIn64BitMode=${{ matrix.architecture == 'x64' && 'x64' || '' }}
+
+          [Files]
+          Source: "$appFolder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+          [Icons]
+          Name: "{group}\BASIL"; Filename: "{app}\BASIL.exe"
+          Name: "{autodesktop}\BASIL"; Filename: "{app}\BASIL.exe"; Tasks: desktopicon
+
+          [Tasks]
+          Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+          "@ | Out-File -FilePath "setup.iss" -Encoding ASCII
+
+      - name: Build Windows installer with Inno Setup
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.architecture }}
+          path: dist/BASIL-setup-${{ matrix.architecture }}.exe
+
+  build-macos-arm64:
+    runs-on: macos-14  # Apple Silicon runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+      - name: Build ARM64 application
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
+
+          # Rename to indicate architecture
+          mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-arm64.app"
+
+      - name: Upload ARM64 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-build
+          path: dist/BASIL-*-arm64.app
+
+  build-macos-intel:
+    runs-on: macos-13  # Intel runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          cp poetry-macos-intel.lock poetry.lock
+          poetry install
+
+      - name: Build x86_64 application
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
+
+          # Rename to indicate architecture
+          mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-x86_64.app"
+
+      - name: Upload Intel build
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-build
+          path: dist/BASIL-*-x86_64.app
+
+  create-universal-binary:
+    needs: [build-macos-arm64, build-macos-intel]
+    runs-on: macos-14
+    steps:
+      - name: Download ARM64 build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64-build
+          path: dist-arm64/
+
+      - name: Download Intel build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-intel-build
+          path: dist-intel/
+
+      - name: Create Universal Binary
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          # Find the app bundles
+          ARM64_APP=$(find dist-arm64 -name "*.app" -type d)
+          INTEL_APP=$(find dist-intel -name "*.app" -type d)
+
+          echo "ARM64 app: $ARM64_APP"
+          echo "Intel app: $INTEL_APP"
+
+          # Create universal app structure
+          mkdir -p dist
+          cp -R "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
+
+          # Get the executable name
+          EXEC_NAME=$(basename "dist/BASIL-v${VERSION}.app/Contents/MacOS/"*)
+
+          echo "Executable name: $EXEC_NAME"
+
+          # Create universal binary using lipo
+          lipo -create \
+            "$ARM64_APP/Contents/MacOS/$EXEC_NAME" \
+            "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
+            -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # Verify the universal binary
+          echo "Universal binary info:"
+          lipo -info "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # Verify architectures
+          file "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+      - name: Sign Universal Binary
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          # Create entitlements for Python apps
+          cat > entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.security.cs.allow-jit</key>
+            <true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+            <true/>
+            <key>com.apple.security.cs.disable-library-validation</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          # Sign all libraries and frameworks first
+          find "dist/BASIL-v${VERSION}.app/Contents" -type f \( -name "*.so" -o -name "*.dylib" \) -exec codesign --force --sign - {} \; 2>/dev/null || true
+
+          # Sign the main executable with entitlements
+          codesign --force --sign - --entitlements entitlements.plist "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # Sign the entire app bundle with entitlements
+          codesign --force --deep --sign - --entitlements entitlements.plist "dist/BASIL-v${VERSION}.app"
+
+          # Verify signature
+          codesign --verify --verbose "dist/BASIL-v${VERSION}.app"
+
+          # Remove quarantine attribute
+          xattr -cr "dist/BASIL-v${VERSION}.app" 2>/dev/null || true
+
+      - name: Install DMG creator
+        run: brew install create-dmg
+
+      - name: Create DMG
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          # Create DMG directory
+          mkdir -p dist/dmg
+          cp -r "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
+
+          # Create DMG
+          create-dmg \
+            "dist/BASIL-v${VERSION}-universal.dmg" \
+            "dist/dmg/"
+
+      - name: Upload macOS universal artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: dist/*.dmg
+
+  create-release:
+    needs: [build-windows, create-universal-binary]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: List downloaded artifacts for debugging
+        run: |
+          echo "Downloaded artifacts:"
+          find . -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            windows-x86/*.exe
+            windows-x64/*.exe
+            macos-universal/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
