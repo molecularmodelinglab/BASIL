@@ -13,29 +13,6 @@ on:
     branches: [main]
 
 jobs:
-  generate-intel-lock:
-    runs-on: macos-13  # Intel runner
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Generate Intel lock file
-        run: |
-          python -m pip install --upgrade pip
-          pip install poetry
-          poetry lock
-          cp poetry.lock poetry-macos-intel.lock
-
-      - name: Upload Intel lock file
-        uses: actions/upload-artifact@v4
-        with:
-          name: intel-lock-file
-          path: poetry-macos-intel.lock
   build-windows:
     runs-on: windows-latest
     strategy:
@@ -146,6 +123,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install poetry
+          cp poetry-macos-intel.lock poetry.lock
           poetry install
 
       - name: Build x86_64 application
