@@ -169,8 +169,8 @@ jobs:
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
           # Find the app bundles
-          ARM64_APP=$(find dist-arm64 -name "*.app" -type d | head -n 1)
-          INTEL_APP=$(find dist-intel -name "*.app" -type d | head -n 1)
+          ARM64_APP=$(find dist-arm64 -name "*.app" -type d -maxdepth 1 | head -n 1)
+          INTEL_APP=$(find dist-intel -name "*.app" -type d -maxdepth 1 | head -n 1)
 
           echo "ARM64 app: $ARM64_APP"
           echo "Intel app: $INTEL_APP"
@@ -179,21 +179,32 @@ jobs:
           mkdir -p dist
           cp -R "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
 
-          # Find the actual executable inside the app bundle
-          ARM64_EXEC=$(find "$ARM64_APP/Contents/MacOS" -type f -perm +111 | head -n 1)
-          INTEL_EXEC=$(find "$INTEL_APP/Contents/MacOS" -type f -perm +111 | head -n 1)
+          # List contents to debug
+          echo "ARM64 MacOS contents:"
+          ls -la "$ARM64_APP/Contents/MacOS/"
+          echo "Intel MacOS contents:"
+          ls -la "$INTEL_APP/Contents/MacOS/"
 
-          echo "ARM64 executable: $ARM64_EXEC"
-          echo "Intel executable: $INTEL_EXEC"
+          # Get the executable name (usually it's just "BASIL")
+          EXEC_NAME=$(ls "$ARM64_APP/Contents/MacOS/" | grep -v "^\\." | head -n 1)
 
-          # Get just the executable name
-          EXEC_NAME=$(basename "$ARM64_EXEC")
           echo "Executable name: $EXEC_NAME"
+
+          # Verify files exist
+          if [ ! -f "$ARM64_APP/Contents/MacOS/$EXEC_NAME" ]; then
+            echo "ERROR: ARM64 executable not found at $ARM64_APP/Contents/MacOS/$EXEC_NAME"
+            exit 1
+          fi
+
+          if [ ! -f "$INTEL_APP/Contents/MacOS/$EXEC_NAME" ]; then
+            echo "ERROR: Intel executable not found at $INTEL_APP/Contents/MacOS/$EXEC_NAME"
+            exit 1
+          fi
 
           # Create universal binary using lipo on the actual executables
           lipo -create \
-            "$ARM64_EXEC" \
-            "$INTEL_EXEC" \
+            "$ARM64_APP/Contents/MacOS/$EXEC_NAME" \
+            "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
             -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
 
           # Verify the universal binary
