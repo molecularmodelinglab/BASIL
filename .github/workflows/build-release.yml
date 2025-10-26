@@ -169,25 +169,31 @@ jobs:
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
           # Find the app bundles
-          ARM64_APP=$(find dist-arm64 -name "*.app" -type d)
-          INTEL_APP=$(find dist-intel -name "*.app" -type d)
+          ARM64_APP=$(find dist-arm64 -name "*.app" -type d | head -n 1)
+          INTEL_APP=$(find dist-intel -name "*.app" -type d | head -n 1)
 
           echo "ARM64 app: $ARM64_APP"
           echo "Intel app: $INTEL_APP"
 
-          # Create universal app structure
+          # Create universal app structure by copying ARM64 as base
           mkdir -p dist
           cp -R "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
 
-          # Get the executable name
-          EXEC_NAME=$(basename "dist/BASIL-v${VERSION}.app/Contents/MacOS/"*)
+          # Find the actual executable inside the app bundle
+          ARM64_EXEC=$(find "$ARM64_APP/Contents/MacOS" -type f -perm +111 | head -n 1)
+          INTEL_EXEC=$(find "$INTEL_APP/Contents/MacOS" -type f -perm +111 | head -n 1)
 
+          echo "ARM64 executable: $ARM64_EXEC"
+          echo "Intel executable: $INTEL_EXEC"
+
+          # Get just the executable name
+          EXEC_NAME=$(basename "$ARM64_EXEC")
           echo "Executable name: $EXEC_NAME"
 
-          # Create universal binary using lipo
+          # Create universal binary using lipo on the actual executables
           lipo -create \
-            "$ARM64_APP/Contents/MacOS/$EXEC_NAME" \
-            "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
+            "$ARM64_EXEC" \
+            "$INTEL_EXEC" \
             -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
 
           # Verify the universal binary
