@@ -214,70 +214,23 @@ jobs:
           # Verify architectures
           file "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
 
-      - name: Sign Universal Binary
+      - name: Remove Quarantine Attributes
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
           APP_PATH="dist/BASIL-v${VERSION}.app"
 
-          # Get the executable name
+          # Just remove quarantine attributes
+          echo "=== Removing quarantine attributes ==="
+          xattr -cr "$APP_PATH" 2>/dev/null || true
+
+          # Verify the universal binary
           EXEC_NAME=$(ls "$APP_PATH/Contents/MacOS/" | grep -v "^\\." | head -n 1)
           EXEC_PATH="$APP_PATH/Contents/MacOS/$EXEC_NAME"
 
-          echo "App path: $APP_PATH"
-          echo "Executable name: $EXEC_NAME"
-          echo "Executable path: $EXEC_PATH"
-
-          # Verify executable exists
-          if [ ! -f "$EXEC_PATH" ]; then
-            echo "ERROR: Executable not found at $EXEC_PATH"
-            ls -la "$APP_PATH/Contents/MacOS/"
-            exit 1
-          fi
-
-          # Remove Python source files that can't be signed
-          echo "=== Removing Python source files ==="
-          find "$APP_PATH" -name "*.py" -type f -delete 2>/dev/null || true
-          find "$APP_PATH" -name "*.pyc" -type f -delete 2>/dev/null || true
-
-          # Create entitlements for Python apps
-          cat > entitlements.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>com.apple.security.cs.allow-jit</key>
-            <true/>
-            <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-            <true/>
-            <key>com.apple.security.cs.disable-library-validation</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
-
-          echo "=== Signing all libraries and frameworks ==="
-          find "$APP_PATH/Contents" -type f \( -name "*.so" -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' file; do
-            echo "Signing: $file"
-            codesign --force --sign - --timestamp=none "$file" 2>&1 || true
-          done
-
-          echo "=== Signing main executable ==="
-          codesign --force --sign - --entitlements entitlements.plist --timestamp=none "$EXEC_PATH"
-
-          echo "=== Signing app bundle ==="
-          codesign --force --deep --sign - --entitlements entitlements.plist --timestamp=none "$APP_PATH"
-
-          echo "=== Verifying signature ==="
-          codesign --verify --deep --verbose=2 "$APP_PATH" 2>&1 || true
-
-          echo "=== Removing quarantine attributes ==="
-          xattr -cr "$APP_PATH"
-
-          echo "=== Final app info ==="
-          ls -lh "$EXEC_PATH"
-          file "$EXEC_PATH"
+          echo "=== Universal binary info ==="
           lipo -info "$EXEC_PATH"
+          file "$EXEC_PATH"
 
       - name: Install DMG creator
         run: brew install create-dmg
