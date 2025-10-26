@@ -218,6 +218,23 @@ jobs:
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
+          APP_PATH="dist/BASIL-v${VERSION}.app"
+
+          # Get the executable name
+          EXEC_NAME=$(ls "$APP_PATH/Contents/MacOS/" | grep -v "^\\." | head -n 1)
+          EXEC_PATH="$APP_PATH/Contents/MacOS/$EXEC_NAME"
+
+          echo "App path: $APP_PATH"
+          echo "Executable name: $EXEC_NAME"
+          echo "Executable path: $EXEC_PATH"
+
+          # Verify executable exists
+          if [ ! -f "$EXEC_PATH" ]; then
+            echo "ERROR: Executable not found at $EXEC_PATH"
+            ls -la "$APP_PATH/Contents/MacOS/"
+            exit 1
+          fi
+
           # Create entitlements for Python apps
           cat > entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -234,20 +251,28 @@ jobs:
           </plist>
           EOF
 
-          # Sign all libraries and frameworks first
-          find "dist/BASIL-v${VERSION}.app/Contents" -type f \( -name "*.so" -o -name "*.dylib" \) -exec codesign --force --sign - {} \; 2>/dev/null || true
+          echo "=== Signing all libraries and frameworks ==="
+          find "$APP_PATH/Contents" -type f \( -name "*.so" -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' file; do
+            echo "Signing: $file"
+            codesign --force --sign - --timestamp=none "$file" 2>&1 || true
+          done
 
-          # Sign the main executable with entitlements
-          codesign --force --sign - --entitlements entitlements.plist "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+          echo "=== Signing main executable ==="
+          codesign --force --sign - --entitlements entitlements.plist --timestamp=none "$EXEC_PATH"
 
-          # Sign the entire app bundle with entitlements
-          codesign --force --deep --sign - --entitlements entitlements.plist "dist/BASIL-v${VERSION}.app"
+          echo "=== Signing app bundle ==="
+          codesign --force --deep --sign - --entitlements entitlements.plist --timestamp=none "$APP_PATH"
 
-          # Verify signature
-          codesign --verify --verbose "dist/BASIL-v${VERSION}.app"
+          echo "=== Verifying signature ==="
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 || true
 
-          # Remove quarantine attribute
-          xattr -cr "dist/BASIL-v${VERSION}.app" 2>/dev/null || true
+          echo "=== Removing quarantine attributes ==="
+          xattr -cr "$APP_PATH"
+
+          echo "=== Final app info ==="
+          ls -lh "$EXEC_PATH"
+          file "$EXEC_PATH"
+          lipo -info "$EXEC_PATH"
 
       - name: Install DMG creator
         run: brew install create-dmg
