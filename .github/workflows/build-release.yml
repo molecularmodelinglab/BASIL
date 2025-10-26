@@ -207,6 +207,23 @@ jobs:
             "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
             -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
 
+          # Restore executable permissions (lipo creates a non-executable file)
+          chmod +x "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # Fix Info.plist for universal binary
+          PLIST_PATH="dist/BASIL-v${VERSION}.app/Contents/Info.plist"
+          if [ -f "$PLIST_PATH" ]; then
+            echo "Updating Info.plist for universal binary..."
+            # Remove architecture-specific keys if they exist
+            /usr/libexec/PlistBuddy -c "Delete :LSArchitecturePriority" "$PLIST_PATH" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Delete :LSRequiresNativeExecution" "$PLIST_PATH" 2>/dev/null || true
+
+            # Ensure proper values
+            /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $EXEC_NAME" "$PLIST_PATH" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST_PATH" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$PLIST_PATH" 2>/dev/null || true
+          fi
+
           # Verify the universal binary
           echo "Universal binary info:"
           lipo -info "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
