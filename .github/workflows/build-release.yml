@@ -237,7 +237,11 @@ jobs:
 
           APP_PATH="dist/BASIL-v${VERSION}.app"
 
-          # Just remove quarantine attributes
+          # Try very basic ad-hoc signing of just the app bundle
+          echo "=== Attempting basic ad-hoc signing ==="
+          codesign --force --deep --sign - "$APP_PATH" 2>&1 || echo "Signing failed, continuing anyway..."
+
+          # Remove quarantine attributes
           echo "=== Removing quarantine attributes ==="
           xattr -cr "$APP_PATH" 2>/dev/null || true
 
