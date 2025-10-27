@@ -336,6 +336,20 @@ jobs:
         run: |
           poetry install
 
+      - name: Force CPU-only PyTorch on Linux
+        run: |
+          # Reinstall torch from the CPU index (overrides any CUDA build)
+          poetry run pip install --index-url https://download.pytorch.org/whl/cpu \
+            --upgrade --force-reinstall torch
+
+          # If you use torchvision/torchaudio, add them too:
+          # poetry run pip install --index-url https://download.pytorch.org/whl/cpu \
+          #   --upgrade --force-reinstall torchvision torchaudio
+
+      - name: Verify CPU-only build (fail fast if CUDA sneaks in)
+        run: |
+          poetry run python -c "import torch; print('Torch', torch.__version__, 'CUDA:', torch.version.cuda)"
+
       - name: Build Linux application
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
