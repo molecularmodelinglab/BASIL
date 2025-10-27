@@ -307,32 +307,58 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      options: --user root
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            software-properties-common \
+            wget \
+            fuse \
+            libfuse2 \
+            desktop-file-utils \
+            file
+          # Add deadsnakes PPA for newer Python on old Ubuntu
+          add-apt-repository ppa:deadsnakes/ppa -y
+          apt-get update
+
+      - name: Install Python 3.11
+        run: |
+          apt-get install -y \
+            python3.11 \
+            python3.11-dev \
+            python3.11-venv \
+            python3-pip
+
+      - name: Set up Python environment
+        run: |
+          python3.11 -m pip install --upgrade pip
+          python3.11 -m pip install poetry
+
+      - name: Install UPX
+        run: |
+          # Install UPX (though PyInstaller may not use it on Linux)
+          apt-get install -y upx-ucl || apt-get install -y upx
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y upx-ucl fuse libfuse2 desktop-file-utils
-          python -m pip install --upgrade pip
-          pip install poetry
           poetry install
 
       - name: Build Linux application
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-          # Use onedir (faster) but we'll fix the Python library issue
           poetry run python build.py --version $VERSION --tag-output --clean
 
-          # Check what Python library PyInstaller included
-          echo "=== Checking for Python libraries in build ==="
-          find "dist/BASIL-v${VERSION}" -name "libpython*" -o -name "Python" | head -10
+          # Check GLIBC requirement
+          echo "=== GLIBC requirement check ==="
+          ldd "dist/BASIL-v${VERSION}/BASIL" | grep libc || true
+          objdump -T "dist/BASIL-v${VERSION}/BASIL" | grep GLIBC | sort -u || true
 
       - name: Download AppImage tools
         run: |
