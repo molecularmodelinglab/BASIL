@@ -352,7 +352,7 @@ jobs:
             cp assets/icons/icon.png AppDir/basil.png
           fi
 
-          # Create desktop entry
+          # Create desktop entry in usr/share/applications
           cat > AppDir/usr/share/applications/basil.desktop << EOF
           [Desktop Entry]
           Name=BASIL
@@ -364,8 +364,11 @@ jobs:
           Comment=BASIL Application
           EOF
 
+          # CRITICAL: appimagetool needs the desktop file in the root AppDir too
+          cp AppDir/usr/share/applications/basil.desktop AppDir/basil.desktop
+
           # Validate desktop file
-          desktop-file-validate AppDir/usr/share/applications/basil.desktop || true
+          desktop-file-validate AppDir/basil.desktop || true
 
           # Create AppRun
           cat > AppDir/AppRun << 'EOF'
@@ -380,6 +383,12 @@ jobs:
 
           # Make BASIL executable
           chmod +x AppDir/usr/bin/BASIL
+
+          # Verify AppDir structure
+          echo "=== AppDir structure ==="
+          ls -la AppDir/
+          echo "=== Desktop file exists ==="
+          ls -la AppDir/*.desktop
 
       - name: Build AppImage
         run: |
