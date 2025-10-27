@@ -327,7 +327,12 @@ jobs:
       - name: Build Linux application
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          # Use onedir (faster) but we'll fix the Python library issue
           poetry run python build.py --version $VERSION --tag-output --clean
+
+          # Check what Python library PyInstaller included
+          echo "=== Checking for Python libraries in build ==="
+          find "dist/BASIL-v${VERSION}" -name "libpython*" -o -name "Python" | head -10
 
       - name: Download AppImage tools
         run: |
@@ -339,12 +344,17 @@ jobs:
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
           mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/lib
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          mkdir -p AppDir/usr/share/icons/hicolor/128x128/apps
 
-          # Copy application files
+          # Copy all application files (onedir mode)
           cp -r dist/BASIL-v${VERSION}/* AppDir/usr/bin/
+
+          # Find and copy Python shared libraries to usr/lib
+          echo "=== Looking for Python libraries ==="
+          find AppDir/usr/bin -name "libpython*.so*" -exec cp {} AppDir/usr/lib/ \;
+          find AppDir/usr/bin -name "*.so*" | head -20
 
           # Copy icons
           if [ -f assets/icons/icon.png ]; then
@@ -352,7 +362,7 @@ jobs:
             cp assets/icons/icon.png AppDir/basil.png
           fi
 
-          # Create desktop entry in usr/share/applications
+          # Create desktop entry
           cat > AppDir/usr/share/applications/basil.desktop << EOF
           [Desktop Entry]
           Name=BASIL
@@ -364,31 +374,33 @@ jobs:
           Comment=BASIL Application
           EOF
 
-          # CRITICAL: appimagetool needs the desktop file in the root AppDir too
+          # Copy to root for appimagetool
           cp AppDir/usr/share/applications/basil.desktop AppDir/basil.desktop
-
-          # Validate desktop file
           desktop-file-validate AppDir/basil.desktop || true
 
-          # Create AppRun
+          # Create AppRun with proper library paths
           cat > AppDir/AppRun << 'EOF'
           #!/bin/bash
           SELF=$(readlink -f "$0")
           HERE=${SELF%/*}
+
+          # Add all library paths
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/bin:${HERE}/usr/bin/lib:${LD_LIBRARY_PATH}"
           export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+
+          # Debug output (comment out for production)
+          # echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+          # ldd "${HERE}/usr/bin/BASIL" | grep python
+
           exec "${HERE}/usr/bin/BASIL" "$@"
           EOF
           chmod +x AppDir/AppRun
-
-          # Make BASIL executable
           chmod +x AppDir/usr/bin/BASIL
 
-          # Verify AppDir structure
+          # Verify structure
           echo "=== AppDir structure ==="
-          ls -la AppDir/
-          echo "=== Desktop file exists ==="
-          ls -la AppDir/*.desktop
+          ls -la AppDir/usr/lib/
+          ls -la AppDir/usr/bin/ | head -20
 
       - name: Build AppImage
         run: |
