@@ -108,11 +108,23 @@ jobs:
           # Rename to indicate architecture
           mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-arm64.app"
 
+      - name: Create tar archive (preserves symlinks)
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          cd dist
+          # Use tar with -h flag to follow symlinks for the executable only
+          # But preserve symlinks in the archive
+          tar -czf BASIL-v${VERSION}-arm64.tar.gz "BASIL-v${VERSION}-arm64.app"
+
+          # Verify symlinks are in the archive
+          echo "=== Checking archive contents ==="
+          tar -tzf BASIL-v${VERSION}-arm64.tar.gz | grep "Frameworks" | head -10
+
       - name: Upload ARM64 build
         uses: actions/upload-artifact@v4
         with:
           name: macos-arm64-build
-          path: dist/BASIL-*-arm64.app
+          path: dist/*.tar.gz
 
   build-macos-intel:
     runs-on: macos-13  # Intel runner
@@ -142,11 +154,21 @@ jobs:
           # Rename to indicate architecture
           mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-x86_64.app"
 
+      - name: Create tar archive (preserves symlinks)
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          cd dist
+          tar -czf BASIL-v${VERSION}-x86_64.tar.gz "BASIL-v${VERSION}-x86_64.app"
+
+          # Verify symlinks are in the archive
+          echo "=== Checking archive contents ==="
+          tar -tzf BASIL-v${VERSION}-x86_64.tar.gz | grep "Frameworks" | head -10
+
       - name: Upload Intel build
         uses: actions/upload-artifact@v4
         with:
           name: macos-intel-build
-          path: dist/BASIL-*-x86_64.app
+          path: dist/*.tar.gz
 
   create-universal-binary:
     needs: [build-macos-arm64, build-macos-intel]
@@ -164,13 +186,30 @@ jobs:
           name: macos-intel-build
           path: dist-intel/
 
+      - name: Extract archives
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          cd dist-arm64
+          tar -xzf BASIL-v${VERSION}-arm64.tar.gz
+
+          cd ../dist-intel
+          tar -xzf BASIL-v${VERSION}-x86_64.tar.gz
+
+          cd ..
+
+          # Verify symlinks are preserved after extraction
+          echo "=== ARM64 symlinks ==="
+          ls -la "dist-arm64/BASIL-v${VERSION}-arm64.app/Contents/Frameworks/" | grep "^l" | head -5
+          echo "=== Intel symlinks ==="
+          ls -la "dist-intel/BASIL-v${VERSION}-x86_64.app/Contents/Frameworks/" | grep "^l" | head -5
+
       - name: Create Universal Binary
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
-          # Find the app bundles
-          ARM64_APP=$(find dist-arm64 -name "*.app" -type d -maxdepth 1 | head -n 1)
-          INTEL_APP=$(find dist-intel -name "*.app" -type d -maxdepth 1 | head -n 1)
+          ARM64_APP="dist-arm64/BASIL-v${VERSION}-arm64.app"
+          INTEL_APP="dist-intel/BASIL-v${VERSION}-x86_64.app"
 
           echo "ARM64 app: $ARM64_APP"
           echo "Intel app: $INTEL_APP"
@@ -180,79 +219,57 @@ jobs:
           mkdir -p dist
           cp -a "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
 
-          # List contents to debug
-          echo "ARM64 MacOS contents:"
-          ls -la "$ARM64_APP/Contents/MacOS/"
-          echo "Intel MacOS contents:"
-          ls -la "$INTEL_APP/Contents/MacOS/"
-
-          # Get the executable name (usually it's just "BASIL")
+          # Get the executable name
           EXEC_NAME=$(ls "$ARM64_APP/Contents/MacOS/" | grep -v "^\\." | head -n 1)
-
           echo "Executable name: $EXEC_NAME"
 
           # Verify files exist
           if [ ! -f "$ARM64_APP/Contents/MacOS/$EXEC_NAME" ]; then
-            echo "ERROR: ARM64 executable not found at $ARM64_APP/Contents/MacOS/$EXEC_NAME"
+            echo "ERROR: ARM64 executable not found"
             exit 1
           fi
 
           if [ ! -f "$INTEL_APP/Contents/MacOS/$EXEC_NAME" ]; then
-            echo "ERROR: Intel executable not found at $INTEL_APP/Contents/MacOS/$EXEC_NAME"
+            echo "ERROR: Intel executable not found"
             exit 1
           fi
 
-          # Create universal binary using lipo on the actual executables
+          # Create universal binary using lipo
           lipo -create \
             "$ARM64_APP/Contents/MacOS/$EXEC_NAME" \
             "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
             -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
 
-          # Restore executable permissions (lipo creates a non-executable file)
+          # Restore executable permissions
           chmod +x "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
 
-          # Fix Info.plist for universal binary
+          # Fix Info.plist
           PLIST_PATH="dist/BASIL-v${VERSION}.app/Contents/Info.plist"
           if [ -f "$PLIST_PATH" ]; then
             echo "Updating Info.plist for universal binary..."
-            # Remove architecture-specific keys if they exist
             /usr/libexec/PlistBuddy -c "Delete :LSArchitecturePriority" "$PLIST_PATH" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Delete :LSRequiresNativeExecution" "$PLIST_PATH" 2>/dev/null || true
-
-            # Ensure proper values
             /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $EXEC_NAME" "$PLIST_PATH" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST_PATH" 2>/dev/null || true
             /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$PLIST_PATH" 2>/dev/null || true
           fi
 
           # Verify the universal binary
-          echo "Universal binary info:"
+          echo "=== Universal binary info ==="
           lipo -info "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
-
-          # Verify architectures
           file "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
+
+          # CRITICAL: Verify symlinks are STILL preserved
+          echo "=== Final symlink check ==="
+          ls -la "dist/BASIL-v${VERSION}.app/Contents/Frameworks/" | grep "^l" | head -5
 
       - name: Remove Quarantine Attributes
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-
           APP_PATH="dist/BASIL-v${VERSION}.app"
 
-          # Remove quarantine attributes
           echo "=== Removing quarantine attributes ==="
           xattr -cr "$APP_PATH" 2>/dev/null || true
-
-          # Verify the universal binary
-          EXEC_NAME=$(ls "$APP_PATH/Contents/MacOS/" | grep -v "^\\." | head -n 1)
-          EXEC_PATH="$APP_PATH/Contents/MacOS/$EXEC_NAME"
-
-          echo "=== Universal binary info ==="
-          lipo -info "$EXEC_PATH"
-          file "$EXEC_PATH"
-
-          # Verify symlinks are preserved
-          echo "=== Checking symlinks in Frameworks ==="
-          ls -la "$APP_PATH/Contents/Frameworks/" | grep "^l" | head -5
 
       - name: Install DMG creator
         run: brew install create-dmg
@@ -263,12 +280,17 @@ jobs:
 
           # Create DMG directory
           mkdir -p dist/dmg
-          # CRITICAL: Use -a flag to preserve symlinks and avoid duplication
+          # CRITICAL: Use -a flag to preserve symlinks
           cp -a "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
 
-          # Verify symlinks are preserved before DMG creation
+          # Final symlink verification before DMG creation
           echo "=== Verifying symlinks before DMG creation ==="
           ls -la dist/dmg/BASIL.app/Contents/Frameworks/ | grep "^l" | head -5
+
+          # Check sizes
+          echo "=== Size check ==="
+          du -sh dist/dmg/BASIL.app/Contents/Frameworks
+          du -sh dist/dmg/BASIL.app/Contents/Resources
 
           # Create DMG
           create-dmg \
@@ -324,13 +346,10 @@ jobs:
           # Copy application files
           cp -r dist/BASIL-v${VERSION}/* AppDir/usr/bin/
 
-          # Copy icons (try different sizes/formats)
+          # Copy icons
           if [ -f assets/icons/icon.png ]; then
             cp assets/icons/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/basil.png
             cp assets/icons/icon.png AppDir/basil.png
-          elif [ -f assets/icons/icon.icns ]; then
-            # Convert icns to png if needed (requires imagemagick)
-            echo "Warning: .icns icon found, using fallback. Consider adding a .png icon."
           fi
 
           # Create desktop entry
