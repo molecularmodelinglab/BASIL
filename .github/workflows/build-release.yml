@@ -306,45 +306,31 @@ jobs:
           path: dist/*.dmg
 
   build-linux:
-    runs-on: ubuntu-latest
-    container:
-      image: ubuntu:20.04
-      options: --user root
+    runs-on: ubuntu-22.04
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install system dependencies
         run: |
-          apt-get update
-          apt-get install -y \
-            software-properties-common \
-            wget \
-            fuse \
+          sudo apt-get update
+          sudo apt-get install -y \
             libfuse2 \
             desktop-file-utils \
-            file
-          # Add deadsnakes PPA for newer Python on old Ubuntu
-          add-apt-repository ppa:deadsnakes/ppa -y
-          apt-get update
+            file \
+            upx \
+            wget
 
-      - name: Install Python 3.11
+      - name: Install Poetry
         run: |
-          apt-get install -y \
-            python3.11 \
-            python3.11-dev \
-            python3.11-venv \
-            python3-pip
-
-      - name: Set up Python environment
-        run: |
-          python3.11 -m pip install --upgrade pip
-          python3.11 -m pip install poetry
-
-      - name: Install UPX
-        run: |
-          # Install UPX (though PyInstaller may not use it on Linux)
-          apt-get install -y upx-ucl || apt-get install -y upx
+          python -m pip install --upgrade pip
+          python -m pip install poetry
 
       - name: Install dependencies
         run: |
@@ -355,7 +341,6 @@ jobs:
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           poetry run python build.py --version $VERSION --tag-output --clean
 
-          # Check GLIBC requirement
           echo "=== GLIBC requirement check ==="
           ldd "dist/BASIL-v${VERSION}/BASIL" | grep libc || true
           objdump -T "dist/BASIL-v${VERSION}/BASIL" | grep GLIBC | sort -u || true
@@ -374,22 +359,18 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
-          # Copy all application files (onedir mode)
           cp -r dist/BASIL-v${VERSION}/* AppDir/usr/bin/
 
-          # Find and copy Python shared libraries to usr/lib
           echo "=== Looking for Python libraries ==="
           find AppDir/usr/bin -name "libpython*.so*" -exec cp {} AppDir/usr/lib/ \;
           find AppDir/usr/bin -name "*.so*" | head -20
 
-          # Copy icons
           if [ -f assets/icons/icon.png ]; then
             cp assets/icons/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/basil.png
             cp assets/icons/icon.png AppDir/basil.png
           fi
 
-          # Create desktop entry
-          cat > AppDir/usr/share/applications/basil.desktop << EOF
+          cat > AppDir/usr/share/applications/basil.desktop << 'EOF'
           [Desktop Entry]
           Name=BASIL
           Exec=BASIL
@@ -400,32 +381,21 @@ jobs:
           Comment=BASIL Application
           EOF
 
-          # Copy to root for appimagetool
           cp AppDir/usr/share/applications/basil.desktop AppDir/basil.desktop
-          desktop-file-validate AppDir/basil.desktop || true
 
-          # Create AppRun with proper library paths
           cat > AppDir/AppRun << 'EOF'
           #!/bin/bash
           SELF=$(readlink -f "$0")
           HERE=${SELF%/*}
-
-          # Add all library paths
           export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/bin:${HERE}/usr/bin/lib:${LD_LIBRARY_PATH}"
           export PATH="${HERE}/usr/bin:${PATH}"
-
-          # Debug output (comment out for production)
-          # echo "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
-          # ldd "${HERE}/usr/bin/BASIL" | grep python
-
           exec "${HERE}/usr/bin/BASIL" "$@"
           EOF
           chmod +x AppDir/AppRun
           chmod +x AppDir/usr/bin/BASIL
 
-          # Verify structure
           echo "=== AppDir structure ==="
-          ls -la AppDir/usr/lib/
+          ls -la AppDir/usr/lib/ || true
           ls -la AppDir/usr/bin/ | head -20
 
       - name: Build AppImage
@@ -445,6 +415,7 @@ jobs:
         with:
           name: linux-x86_64
           path: BASIL-*.AppImage
+
 
   create-release:
     needs: [build-windows, create-universal-binary, build-linux]
