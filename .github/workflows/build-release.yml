@@ -176,8 +176,9 @@ jobs:
           echo "Intel app: $INTEL_APP"
 
           # Create universal app structure by copying ARM64 as base
+          # CRITICAL: Use -a to preserve symlinks
           mkdir -p dist
-          cp -R "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
+          cp -a "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
 
           # List contents to debug
           echo "ARM64 MacOS contents:"
@@ -249,6 +250,10 @@ jobs:
           lipo -info "$EXEC_PATH"
           file "$EXEC_PATH"
 
+          # Verify symlinks are preserved
+          echo "=== Checking symlinks in Frameworks ==="
+          ls -la "$APP_PATH/Contents/Frameworks/" | grep "^l" | head -5
+
       - name: Install DMG creator
         run: brew install create-dmg
 
@@ -258,10 +263,17 @@ jobs:
 
           # Create DMG directory
           mkdir -p dist/dmg
-          cp -r "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
+          # CRITICAL: Use -a flag to preserve symlinks and avoid duplication
+          cp -a "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
+
+          # Verify symlinks are preserved before DMG creation
+          echo "=== Verifying symlinks before DMG creation ==="
+          ls -la dist/dmg/BASIL.app/Contents/Frameworks/ | grep "^l" | head -5
 
           # Create DMG
           create-dmg \
+            --volname "BASIL" \
+            --no-internet-enable \
             "dist/BASIL-v${VERSION}-universal.dmg" \
             "dist/dmg/"
 
