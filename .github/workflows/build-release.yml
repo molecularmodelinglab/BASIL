@@ -237,17 +237,6 @@ jobs:
 
           APP_PATH="dist/BASIL-v${VERSION}.app"
 
-          # Remove files that cause signing issues
-          echo "=== Cleaning up problematic files ==="
-          find "$APP_PATH" -name "*.dist-info" -type d -exec rm -rf {} + 2>/dev/null || true
-          find "$APP_PATH" -name "*.py" -type f -delete 2>/dev/null || true
-          find "$APP_PATH" -name "*.pyc" -type f -delete 2>/dev/null || true
-          find "$APP_PATH" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-
-          # Try ad-hoc signing
-          echo "=== Attempting ad-hoc signing ==="
-          codesign --force --deep --sign - "$APP_PATH" 2>&1 || echo "Signing failed, continuing anyway..."
-
           # Remove quarantine attributes
           echo "=== Removing quarantine attributes ==="
           xattr -cr "$APP_PATH" 2>/dev/null || true

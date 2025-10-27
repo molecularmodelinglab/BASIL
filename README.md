@@ -117,6 +117,21 @@ poetry run python build.py --version 0.1.0 --tag-output
 
 The script handles icons, Windows version info, macOS bundle metadata, and optional UPX compression. Generated artefacts land in `dist/`, with intermediate files in `build/`.
 
+## macOS Installation
+
+### Important: First-Time Setup (macOS only)
+
+After installing BASIL to Applications, open Terminal and run:
+```bash
+xattr -cr /Applications/BASIL.app
+```
+
+Then you can open BASIL normally. You only need to do this once.
+
+### Why is this needed?
+
+BASIL is free and open-source. Apple requires a $99/year developer account to avoid this security warning. We provide this simple workaround instead.
+
 ## Resources
 - License: [Apache 2.0](LICENSE)
 - Issue tracker: [GitHub Issues](https://github.com/molecularmodelinglab/BASIL/issues)
