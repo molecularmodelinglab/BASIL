@@ -283,8 +283,105 @@ jobs:
           name: macos-universal
           path: dist/*.dmg
 
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx-ucl fuse libfuse2 desktop-file-utils
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+      - name: Build Linux application
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          poetry run python build.py --version $VERSION --tag-output --clean
+
+      - name: Download AppImage tools
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+      - name: Create AppImage structure
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/icons/hicolor/128x128/apps
+
+          # Copy application files
+          cp -r dist/BASIL-v${VERSION}/* AppDir/usr/bin/
+
+          # Copy icons (try different sizes/formats)
+          if [ -f assets/icons/icon.png ]; then
+            cp assets/icons/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/basil.png
+            cp assets/icons/icon.png AppDir/basil.png
+          elif [ -f assets/icons/icon.icns ]; then
+            # Convert icns to png if needed (requires imagemagick)
+            echo "Warning: .icns icon found, using fallback. Consider adding a .png icon."
+          fi
+
+          # Create desktop entry
+          cat > AppDir/usr/share/applications/basil.desktop << EOF
+          [Desktop Entry]
+          Name=BASIL
+          Exec=BASIL
+          Icon=basil
+          Type=Application
+          Categories=Science;Education;
+          Terminal=false
+          Comment=BASIL Application
+          EOF
+
+          # Validate desktop file
+          desktop-file-validate AppDir/usr/share/applications/basil.desktop || true
+
+          # Create AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/BASIL" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          # Make BASIL executable
+          chmod +x AppDir/usr/bin/BASIL
+
+      - name: Build AppImage
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir BASIL-v${VERSION}-x86_64.AppImage
+          chmod +x BASIL-v${VERSION}-x86_64.AppImage
+
+      - name: Verify AppImage
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+          ls -lh BASIL-v${VERSION}-x86_64.AppImage
+          file BASIL-v${VERSION}-x86_64.AppImage
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: BASIL-*.AppImage
+
   create-release:
-    needs: [build-windows, create-universal-binary]
+    needs: [build-windows, create-universal-binary, build-linux]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
@@ -295,6 +392,9 @@ jobs:
         run: |
           echo "Downloaded artifacts:"
           find . -type f
+          echo ""
+          echo "File sizes:"
+          find . -type f -exec ls -lh {} \;
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -303,5 +403,6 @@ jobs:
             windows-x86/*.exe
             windows-x64/*.exe
             macos-universal/*.dmg
+            linux-x86_64/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
