@@ -110,10 +110,38 @@ Additional developer utilities live at the repository root (`build.py`, `example
 Use `build.py` to create platform-specific bundles via PyInstaller:
 
 ```powershell
-poetry run python build.py --onefile --version 0.1.0 --tag-output
+poetry run python build.py --version 0.1.0 --tag-output
 ```
 
+**Performance Note**: Using the `--onefile` option may result in slower startup times on both Windows and macOS due to the need to extract dependencies on each launch. For better performance, we recommend using the default `--onedir` mode.
+
 The script handles icons, Windows version info, macOS bundle metadata, and optional UPX compression. Generated artefacts land in `dist/`, with intermediate files in `build/`.
+
+## macOS Installation
+
+### Important: First-Time Setup (macOS only)
+
+After installing BASIL to Applications, open Terminal and run:
+```bash
+xattr -cr /Applications/BASIL.app
+```
+
+Then you can open BASIL normally. You only need to do this once.
+
+### Why is this needed?
+
+BASIL is free and open-source. Apple requires a $99/year developer account to avoid this security warning. We provide this simple workaround instead.
+
+### Important: First-Time Setup (Windows only)
+
+1. Download the BASIL installer archive.
+2. If your antivirus deletes it, temporarily disable protection and re-download.
+3. Extract and install BASIL.
+4. Launch BASIL in Administrator mode.
+
+### Why is this needed?
+
+BASIL is currently in beta and unsigned (no digital certificate). Some antivirus software may flag or delete unsigned applications. Running as Administrator ensures BASIL can correctly access required resources during its first launch.
 
 ## Resources
 - License: [Apache 2.0](LICENSE)
