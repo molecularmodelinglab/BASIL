@@ -1,6 +1,9 @@
 name: Build and Release (Universal Binary)
 
 on:
+  pull_request:
+    branches:
+      - dev
   release:
     types: [published]
   workflow_dispatch:
