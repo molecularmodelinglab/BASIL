@@ -120,6 +120,10 @@ jobs:
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
+          hdiutil detach /Volumes/BASIL 2>/dev/null || true
+          rm -rf dist/dmg
+          rm -f "dist/BASIL-v${VERSION}-arm64.dmg"
+
           mkdir -p dist/dmg
           cp -a "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
 
@@ -127,7 +131,7 @@ jobs:
             --volname "BASIL" \
             --no-internet-enable \
             "dist/BASIL-v${VERSION}-arm64.dmg" \
-            "dist/dmg/"
+            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${VERSION}-arm64.dmg"
 
       - name: Upload ARM64 DMG
         uses: actions/upload-artifact@v4
@@ -174,6 +178,10 @@ jobs:
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
+          hdiutil detach /Volumes/BASIL 2>/dev/null || true
+          rm -rf dist/dmg
+          rm -f "dist/BASIL-v${VERSION}-intel.dmg"
+
           mkdir -p dist/dmg
           cp -a "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
 
@@ -181,7 +189,7 @@ jobs:
             --volname "BASIL" \
             --no-internet-enable \
             "dist/BASIL-v${VERSION}-intel.dmg" \
-            "dist/dmg/"
+            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${VERSION}-intel.dmg"
 
       - name: Upload Intel DMG
         uses: actions/upload-artifact@v4
