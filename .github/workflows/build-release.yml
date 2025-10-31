@@ -1,6 +1,9 @@
-name: Build and Release (Universal Binary)
+name: Build and Release
 
 on:
+  pull_request:
+    branches:
+      - dev
   release:
     types: [published]
   workflow_dispatch:
@@ -79,7 +82,7 @@ jobs:
           path: dist/BASIL-setup-${{ matrix.architecture }}.exe
 
   build-macos-arm64:
-    runs-on: macos-14  # Apple Silicon runner
+    runs-on: macos-14
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -99,33 +102,45 @@ jobs:
           poetry install
 
       - name: Build ARM64 application
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
 
-          # Rename to indicate architecture
-          mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-arm64.app"
-
-      - name: Create tar archive (preserves symlinks)
+      - name: Remove Quarantine Attributes
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-          cd dist
-          # Use tar with -h flag to follow symlinks for the executable only
-          # But preserve symlinks in the archive
-          tar -czf BASIL-v${VERSION}-arm64.tar.gz "BASIL-v${VERSION}-arm64.app"
+          xattr -cr "dist/BASIL-v${VERSION}.app" 2>/dev/null || true
 
-          # Verify symlinks are in the archive
-          echo "=== Checking archive contents ==="
-          tar -tzf BASIL-v${VERSION}-arm64.tar.gz | grep "Frameworks" | head -10
+      - name: Install DMG creator
+        run: brew install create-dmg
 
-      - name: Upload ARM64 build
+      - name: Create ARM64 DMG
+        run: |
+          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
+
+          hdiutil detach /Volumes/BASIL 2>/dev/null || true
+          rm -rf dist/dmg
+          rm -f "dist/BASIL-v${VERSION}-arm64.dmg"
+
+          mkdir -p dist/dmg
+          cp -a "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
+
+          create-dmg \
+            --volname "BASIL" \
+            --no-internet-enable \
+            "dist/BASIL-v${VERSION}-arm64.dmg" \
+            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${VERSION}-arm64.dmg"
+
+      - name: Upload ARM64 DMG
         uses: actions/upload-artifact@v4
         with:
-          name: macos-arm64-build
-          path: dist/*.tar.gz
+          name: macos-arm64
+          path: dist/*-arm64.dmg
 
   build-macos-intel:
-    runs-on: macos-13  # Intel runner
+    runs-on: macos-13
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -145,163 +160,42 @@ jobs:
           poetry install
 
       - name: Build x86_64 application
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
 
-          # Rename to indicate architecture
-          mv "dist/BASIL-v${VERSION}.app" "dist/BASIL-v${VERSION}-x86_64.app"
-
-      - name: Create tar archive (preserves symlinks)
-        run: |
-          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-          cd dist
-          tar -czf BASIL-v${VERSION}-x86_64.tar.gz "BASIL-v${VERSION}-x86_64.app"
-
-          # Verify symlinks are in the archive
-          echo "=== Checking archive contents ==="
-          tar -tzf BASIL-v${VERSION}-x86_64.tar.gz | grep "Frameworks" | head -10
-
-      - name: Upload Intel build
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-intel-build
-          path: dist/*.tar.gz
-
-  create-universal-binary:
-    needs: [build-macos-arm64, build-macos-intel]
-    runs-on: macos-14
-    steps:
-      - name: Download ARM64 build
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-arm64-build
-          path: dist-arm64/
-
-      - name: Download Intel build
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-intel-build
-          path: dist-intel/
-
-      - name: Extract archives
-        run: |
-          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-
-          cd dist-arm64
-          tar -xzf BASIL-v${VERSION}-arm64.tar.gz
-
-          cd ../dist-intel
-          tar -xzf BASIL-v${VERSION}-x86_64.tar.gz
-
-          cd ..
-
-          # Verify symlinks are preserved after extraction
-          echo "=== ARM64 symlinks ==="
-          ls -la "dist-arm64/BASIL-v${VERSION}-arm64.app/Contents/Frameworks/" | grep "^l" | head -5
-          echo "=== Intel symlinks ==="
-          ls -la "dist-intel/BASIL-v${VERSION}-x86_64.app/Contents/Frameworks/" | grep "^l" | head -5
-
-      - name: Create Universal Binary
-        run: |
-          VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-
-          ARM64_APP="dist-arm64/BASIL-v${VERSION}-arm64.app"
-          INTEL_APP="dist-intel/BASIL-v${VERSION}-x86_64.app"
-
-          echo "ARM64 app: $ARM64_APP"
-          echo "Intel app: $INTEL_APP"
-
-          # Create universal app structure by copying ARM64 as base
-          # CRITICAL: Use -a to preserve symlinks
-          mkdir -p dist
-          cp -a "$ARM64_APP" "dist/BASIL-v${VERSION}.app"
-
-          # Get the executable name
-          EXEC_NAME=$(ls "$ARM64_APP/Contents/MacOS/" | grep -v "^\\." | head -n 1)
-          echo "Executable name: $EXEC_NAME"
-
-          # Verify files exist
-          if [ ! -f "$ARM64_APP/Contents/MacOS/$EXEC_NAME" ]; then
-            echo "ERROR: ARM64 executable not found"
-            exit 1
-          fi
-
-          if [ ! -f "$INTEL_APP/Contents/MacOS/$EXEC_NAME" ]; then
-            echo "ERROR: Intel executable not found"
-            exit 1
-          fi
-
-          # Create universal binary using lipo
-          lipo -create \
-            "$ARM64_APP/Contents/MacOS/$EXEC_NAME" \
-            "$INTEL_APP/Contents/MacOS/$EXEC_NAME" \
-            -output "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
-
-          # Restore executable permissions
-          chmod +x "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
-
-          # Fix Info.plist
-          PLIST_PATH="dist/BASIL-v${VERSION}.app/Contents/Info.plist"
-          if [ -f "$PLIST_PATH" ]; then
-            echo "Updating Info.plist for universal binary..."
-            /usr/libexec/PlistBuddy -c "Delete :LSArchitecturePriority" "$PLIST_PATH" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Delete :LSRequiresNativeExecution" "$PLIST_PATH" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $EXEC_NAME" "$PLIST_PATH" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST_PATH" 2>/dev/null || true
-            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$PLIST_PATH" 2>/dev/null || true
-          fi
-
-          # Verify the universal binary
-          echo "=== Universal binary info ==="
-          lipo -info "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
-          file "dist/BASIL-v${VERSION}.app/Contents/MacOS/$EXEC_NAME"
-
-          # CRITICAL: Verify symlinks are STILL preserved
-          echo "=== Final symlink check ==="
-          ls -la "dist/BASIL-v${VERSION}.app/Contents/Frameworks/" | grep "^l" | head -5
-
       - name: Remove Quarantine Attributes
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-          APP_PATH="dist/BASIL-v${VERSION}.app"
-
-          echo "=== Removing quarantine attributes ==="
-          xattr -cr "$APP_PATH" 2>/dev/null || true
+          xattr -cr "dist/BASIL-v${VERSION}.app" 2>/dev/null || true
 
       - name: Install DMG creator
         run: brew install create-dmg
 
-      - name: Create DMG
+      - name: Create Intel DMG
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
 
-          # Create DMG directory
+          hdiutil detach /Volumes/BASIL 2>/dev/null || true
+          rm -rf dist/dmg
+          rm -f "dist/BASIL-v${VERSION}-intel.dmg"
+
           mkdir -p dist/dmg
-          # CRITICAL: Use -a flag to preserve symlinks
           cp -a "dist/BASIL-v${VERSION}.app" dist/dmg/BASIL.app
 
-          # Final symlink verification before DMG creation
-          echo "=== Verifying symlinks before DMG creation ==="
-          ls -la dist/dmg/BASIL.app/Contents/Frameworks/ | grep "^l" | head -5
-
-          # Check sizes
-          echo "=== Size check ==="
-          du -sh dist/dmg/BASIL.app/Contents/Frameworks
-          du -sh dist/dmg/BASIL.app/Contents/Resources
-
-          # Create DMG
           create-dmg \
             --volname "BASIL" \
             --no-internet-enable \
-            "dist/BASIL-v${VERSION}-universal.dmg" \
-            "dist/dmg/"
+            "dist/BASIL-v${VERSION}-intel.dmg" \
+            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${VERSION}-intel.dmg"
 
-      - name: Upload macOS universal artifacts
+      - name: Upload Intel DMG
         uses: actions/upload-artifact@v4
         with:
-          name: macos-universal
-          path: dist/*.dmg
+          name: macos-intel
+          path: dist/*-intel.dmg
 
   build-linux:
     runs-on: ubuntu-22.04
@@ -336,15 +230,10 @@ jobs:
 
       - name: Force CPU-only PyTorch on Linux
         run: |
-          # Reinstall torch from the CPU index (overrides any CUDA build)
           poetry run pip install --index-url https://download.pytorch.org/whl/cpu \
             --upgrade --force-reinstall torch
 
-          # If you use torchvision/torchaudio, add them too:
-          # poetry run pip install --index-url https://download.pytorch.org/whl/cpu \
-          #   --upgrade --force-reinstall torchvision torchaudio
-
-      - name: Verify CPU-only build (fail fast if CUDA sneaks in)
+      - name: Verify CPU-only build
         run: |
           poetry run python -c "import torch; print('Torch', torch.__version__, 'CUDA:', torch.version.cuda)"
 
@@ -428,21 +317,17 @@ jobs:
           name: linux-x86_64
           path: BASIL-*.AppImage
 
-
   create-release:
-    needs: [build-windows, create-universal-binary, build-linux]
+    needs: [build-windows, build-macos-arm64, build-macos-intel, build-linux]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
-      - name: List downloaded artifacts for debugging
+      - name: List downloaded artifacts
         run: |
-          echo "Downloaded artifacts:"
           find . -type f
-          echo ""
-          echo "File sizes:"
           find . -type f -exec ls -lh {} \;
 
       - name: Create Release
@@ -451,7 +336,12 @@ jobs:
           files: |
             windows-x86/*.exe
             windows-x64/*.exe
-            macos-universal/*.dmg
+            macos-arm64/*.dmg
+            macos-intel/*.dmg
             linux-x86_64/*.AppImage
+          body: |
+            ## macOS Users
+            - **Apple Silicon (M1/M2/M3/M4)**: Download `*-arm64.dmg`
+            - **Intel**: Download `*-intel.dmg`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
