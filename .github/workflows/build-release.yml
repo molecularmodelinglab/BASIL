@@ -82,7 +82,7 @@ jobs:
           path: dist/BASIL-setup-${{ matrix.architecture }}.exe
 
   build-macos-arm64:
-    runs-on: macos-14
+    runs-on: macos-12
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -103,7 +103,7 @@ jobs:
 
       - name: Build ARM64 application
         env:
-          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
@@ -140,7 +140,7 @@ jobs:
           path: dist/*-arm64.dmg
 
   build-macos-intel:
-    runs-on: macos-13
+    runs-on: macos-12
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -161,7 +161,7 @@ jobs:
 
       - name: Build x86_64 application
         env:
-          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
           VERSION=${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
           poetry run python build.py --version $VERSION --tag-output --clean --bundle-id com.basil.app
