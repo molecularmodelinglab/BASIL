@@ -13,11 +13,24 @@ on:
         required: true
         default: '1.0.0'
 
-env:
-  VERSION: ${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}
-
 jobs:
+  prepare-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.clean-version.outputs.version }}
+    steps:
+      - name: Clean version (remove 'v' prefix if present)
+        id: clean-version
+        run: |
+          VERSION="${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}"
+          # Remove 'v' prefix if it exists
+          CLEAN_VERSION="${VERSION#v}"
+          echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+          echo "Original version: $VERSION"
+          echo "Cleaned version: $CLEAN_VERSION"
+
   build-windows:
+    needs: prepare-version
     runs-on: windows-latest
     strategy:
       matrix:
@@ -42,12 +55,12 @@ jobs:
 
       - name: Build application
         run: |
-          poetry run python build.py --version ${{ env.VERSION }} --tag-output --clean
+          poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean
 
       - name: Create Inno Setup script
         run: |
-          $version = "${{ env.VERSION }}"
-          $appFolder = "dist\BASIL-$version"
+          $version = "${{ needs.prepare-version.outputs.version }}"
+          $appFolder = "dist\BASIL-v$version"
 
           @"
           [Setup]
@@ -57,7 +70,7 @@ jobs:
           DefaultDirName={autopf}\BASIL
           DefaultGroupName=BASIL
           OutputDir=dist
-          OutputBaseFilename=BASIL-$version-setup-${{ matrix.architecture }}
+          OutputBaseFilename=BASIL-v$version-setup-${{ matrix.architecture }}
           Compression=lzma2
           SolidCompression=yes
           ArchitecturesAllowed=${{ matrix.architecture == 'x64' && 'x64' || '' }}
@@ -82,9 +95,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.architecture }}
-          path: dist/BASIL-${{ env.VERSION }}-setup-${{ matrix.architecture }}.exe
+          path: dist/BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}.exe
 
   build-macos-arm64:
+    needs: prepare-version
     runs-on: macos-13
     steps:
       - name: Checkout code
@@ -108,11 +122,11 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
-          poetry run python build.py --version ${{ env.VERSION }} --tag-output --clean --bundle-id com.basil.app
+          poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean --bundle-id com.basil.app
 
       - name: Remove Quarantine Attributes
         run: |
-          xattr -cr "dist/BASIL-${{ env.VERSION }}.app" 2>/dev/null || true
+          xattr -cr "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" 2>/dev/null || true
 
       - name: Install DMG creator
         run: brew install create-dmg
@@ -121,16 +135,16 @@ jobs:
         run: |
           hdiutil detach /Volumes/BASIL 2>/dev/null || true
           rm -rf dist/dmg
-          rm -f "dist/BASIL-${{ env.VERSION }}-apple-silicon.dmg"
+          rm -f "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg"
 
           mkdir -p dist/dmg
-          cp -a "dist/BASIL-${{ env.VERSION }}.app" dist/dmg/BASIL.app
+          cp -a "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" dist/dmg/BASIL.app
 
           create-dmg \
             --volname "BASIL" \
             --no-internet-enable \
-            "dist/BASIL-${{ env.VERSION }}-apple-silicon.dmg" \
-            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-${{ env.VERSION }}-apple-silicon.dmg"
+            "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg" \
+            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg"
 
       - name: Upload ARM64 DMG
         uses: actions/upload-artifact@v4
@@ -139,6 +153,7 @@ jobs:
           path: dist/*-apple-silicon.dmg
 
   build-macos-intel:
+    needs: prepare-version
     runs-on: macos-13
     steps:
       - name: Checkout code
@@ -162,11 +177,11 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
-          poetry run python build.py --version ${{ env.VERSION }} --tag-output --clean --bundle-id com.basil.app
+          poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean --bundle-id com.basil.app
 
       - name: Remove Quarantine Attributes
         run: |
-          xattr -cr "dist/BASIL-${{ env.VERSION }}.app" 2>/dev/null || true
+          xattr -cr "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" 2>/dev/null || true
 
       - name: Install DMG creator
         run: brew install create-dmg
@@ -175,16 +190,16 @@ jobs:
         run: |
           hdiutil detach /Volumes/BASIL 2>/dev/null || true
           rm -rf dist/dmg
-          rm -f "dist/BASIL-${{ env.VERSION }}-intel-mac.dmg"
+          rm -f "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg"
 
           mkdir -p dist/dmg
-          cp -a "dist/BASIL-${{ env.VERSION }}.app" dist/dmg/BASIL.app
+          cp -a "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" dist/dmg/BASIL.app
 
           create-dmg \
             --volname "BASIL" \
             --no-internet-enable \
-            "dist/BASIL-${{ env.VERSION }}-intel-mac.dmg" \
-            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-${{ env.VERSION }}-intel-mac.dmg"
+            "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg" \
+            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg"
 
       - name: Upload Intel DMG
         uses: actions/upload-artifact@v4
@@ -193,6 +208,7 @@ jobs:
           path: dist/*-intel-mac.dmg
 
   build-linux:
+    needs: prepare-version
     runs-on: ubuntu-22.04
 
     steps:
@@ -234,11 +250,11 @@ jobs:
 
       - name: Build Linux application
         run: |
-          poetry run python build.py --version ${{ env.VERSION }} --tag-output --clean
+          poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean
 
           echo "=== GLIBC requirement check ==="
-          ldd "dist/BASIL-${{ env.VERSION }}/BASIL" | grep libc || true
-          objdump -T "dist/BASIL-${{ env.VERSION }}/BASIL" | grep GLIBC | sort -u || true
+          ldd "dist/BASIL-v${{ needs.prepare-version.outputs.version }}/BASIL" | grep libc || true
+          objdump -T "dist/BASIL-v${{ needs.prepare-version.outputs.version }}/BASIL" | grep GLIBC | sort -u || true
 
       - name: Download AppImage tools
         run: |
@@ -252,7 +268,7 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
-          cp -r dist/BASIL-${{ env.VERSION }}/* AppDir/usr/bin/
+          cp -r dist/BASIL-v${{ needs.prepare-version.outputs.version }}/* AppDir/usr/bin/
 
           echo "=== Looking for Python libraries ==="
           find AppDir/usr/bin -name "libpython*.so*" -exec cp {} AppDir/usr/lib/ \;
@@ -293,13 +309,13 @@ jobs:
 
       - name: Build AppImage
         run: |
-          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir BASIL-${{ env.VERSION }}-x86_64.AppImage
-          chmod +x BASIL-${{ env.VERSION }}-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
+          chmod +x BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
 
       - name: Verify AppImage
         run: |
-          ls -lh BASIL-${{ env.VERSION }}-x86_64.AppImage
-          file BASIL-${{ env.VERSION }}-x86_64.AppImage
+          ls -lh BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
+          file BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
