@@ -256,13 +256,13 @@ class RunsListScreen(BaseWidget):
         painter.end()
 
         return pixmap
-    
+
     def _build_subtitle(self) -> str:
         """Return subtitle including run count when available."""
         if self.runs_data:
             return f"{self.SUBTITLE_TEXT} ({len(self.runs_data)} runs)"
         return self.SUBTITLE_TEXT
-    
+
     def _refresh_view(self):
         """Refresh the runs list view."""
         if self.subtitle_label:
@@ -275,13 +275,12 @@ class RunsListScreen(BaseWidget):
             item = self.content_layout.takeAt(0)
             if widget := item.widget():
                 widget.setParent(None)
-                #Could be widget.deleteLater()
+                # Could be widget.deleteLater()
 
         if self.runs_data:
             self.content_layout.addWidget(self._create_runs_list())
         else:
             self.content_layout.addWidget(self._create_empty_state())
-
 
     def update_runs_data(self, runs_data: List[Dict[str, Any]]):
         """Update the runs data and refresh the display."""
@@ -292,33 +291,33 @@ class RunsListScreen(BaseWidget):
         """Return the panel-specific buttons."""
         generate_button = PrimaryButton(self.GENERATE_NEW_RUN_TEXT)
         generate_button.clicked.connect(self.new_run_requested.emit)
-        
+
         export_all_button = SecondaryButton("Export All Data")
         export_all_button.clicked.connect(self._handle_export_all_data)
-        
+
         return [export_all_button, generate_button]
 
     def _handle_export_all_data(self):
         """Export all runs data to a single CSV file."""
         if not self.runs_data:
             from app.shared.components.dialogs import InfoDialog
+
             InfoDialog.show_info("Export All Data", "No runs data to export.")
             return
 
-        from PySide6.QtWidgets import QFileDialog
-        from app.shared.components.dialogs import InfoDialog, ErrorDialog
         import csv
         from datetime import datetime
+
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.shared.components.dialogs import ErrorDialog, InfoDialog
 
         campaign_name = "campaign"
         timestamp = datetime.now().strftime("%Y%m%d")
         default_filename = f"{campaign_name}_all_runs_{timestamp}.csv"
 
         file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export All Runs Data to CSV",
-            default_filename,
-            "CSV files (*.csv);;All files (*)"
+            self, "Export All Runs Data to CSV", default_filename, "CSV files (*.csv);;All files (*)"
         )
 
         if not file_path:
@@ -329,7 +328,7 @@ class RunsListScreen(BaseWidget):
             for run in self.runs_data:
                 run_number = run.get("run_number", 0)
                 experiments = run.get("experiments", [])
-                
+
                 for exp in experiments:
                     exp_copy = exp.copy()
                     exp_copy["run_number"] = run_number
@@ -342,26 +341,23 @@ class RunsListScreen(BaseWidget):
             all_columns = set()
             for exp in all_experiments:
                 all_columns.update(exp.keys())
-            
+
             sorted_columns = sorted(all_columns)
             if "run_number" in sorted_columns:
                 sorted_columns.remove("run_number")
                 sorted_columns.insert(0, "run_number")
 
-            with open(file_path, 'w', newline='', encoding='utf-8') as csvfile:
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=sorted_columns)
                 writer.writeheader()
                 writer.writerows(all_experiments)
 
             InfoDialog.show_info(
                 "Export All Data",
-                f"Successfully exported {len(all_experiments)} experiments from {len(self.runs_data)} runs to:\n{file_path}",
-                parent=self
+                f"Successfully exported {len(all_experiments)} experiments \
+                from {len(self.runs_data)} runs to:\n{file_path}",
+                parent=self,
             )
 
         except Exception as e:
-            ErrorDialog.show_error(
-                "Export Failed",
-                f"Could not export all runs data. Error: {e}",
-                parent=self
-            )
+            ErrorDialog.show_error("Export Failed", f"Could not export all runs data. Error: {e}", parent=self)

@@ -131,7 +131,7 @@ class CampaignWizard(BaseScreen):
 
         self.clear_data_button = SecondaryButton(self.CLEAR_DATA_BUTTON_TEXT)
         self.clear_data_button.clicked.connect(self._clear_import_data)
-        self.clear_data_button.setVisible(False) 
+        self.clear_data_button.setVisible(False)
         nav_layout.addWidget(self.clear_data_button)
 
         # Next button
@@ -193,7 +193,7 @@ class CampaignWizard(BaseScreen):
     def _update_clear_button_visibility(self):
         """Update clear data button visibility based on current step and data state."""
         is_data_import_step = self.current_step == 2
-        
+
         if is_data_import_step:
             data_import_step = self.step_widgets[2]
             has_data = data_import_step.has_data()

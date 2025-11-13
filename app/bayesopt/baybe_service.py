@@ -2,7 +2,6 @@
 BayBe integration service for experiment generation and optimization.
 """
 
-import json
 import logging
 import random
 from datetime import datetime

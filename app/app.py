@@ -42,19 +42,21 @@ def main():
                 ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
             except Exception:
                 pass
-        
+
         app = QApplication(sys.argv)
-        
+
         from app.shared.components.splash_screen import SplashScreen
+
         splash = SplashScreen()
         splash.show()
         splash.show_status("Starting BASIL...")
-        
+
         splash.show_status("Loading modules...")
         from PySide6 import QtGui
+
         from app.logging_config import setup_application_logging
         from app.main_application import MainApplication
-        
+
         setup_application_logging(app_name=APPLICATION_NAME)
         logger = logging.getLogger(__name__)
         logger.info("BASIL Starting")
@@ -87,7 +89,7 @@ def main():
         splash.show_status("Loading workspace...")
         window.show()
         logger.info("Main application window initialized and shown")
-        
+
         splash.finish(window)
         sys.exit(app.exec())
 
@@ -96,6 +98,6 @@ def main():
         try:
             logger = logging.getLogger(__name__)
             logger.critical("Critical startup error", exc_info=True)
-        except:
+        except Exception:
             print(f"Critical startup error: {e}", file=sys.stderr)
         sys.exit(1)

@@ -156,7 +156,7 @@ class DataImportStep(BaseStep):
                 file_path
             )
             self._update_preview()
-            
+
             # Notify parent wizard to update clear button visibility
             self._notify_wizard_data_changed()
 
@@ -382,7 +382,7 @@ class DataImportStep(BaseStep):
         """Notify parent wizard that data state has changed."""
         parent = self.parent()
         while parent:
-            if hasattr(parent, '_update_clear_button_visibility'):
+            if hasattr(parent, "_update_clear_button_visibility"):
                 parent._update_clear_button_visibility()
                 break
             parent = parent.parent()
