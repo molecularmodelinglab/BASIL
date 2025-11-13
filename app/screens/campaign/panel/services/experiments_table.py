@@ -138,9 +138,10 @@ class ExperimentsTableScreen(BaseWidget):
     def _create_table_card(self) -> QWidget:
         """Create the main table display card."""
         card = Card()
+        card.setMinimumHeight(400)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
 
         self.table = QTableWidget()
         self._setup_table()
