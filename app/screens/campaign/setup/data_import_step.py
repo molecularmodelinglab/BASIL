@@ -156,6 +156,9 @@ class DataImportStep(BaseStep):
                 file_path
             )
             self._update_preview()
+            
+            # Notify parent wizard to update clear button visibility
+            self._notify_wizard_data_changed()
 
         except Exception as e:
             ErrorDialog.show_error(self.IMPORT_ERROR_TITLE, self.IMPORT_ERROR_MESSAGE.format(e), parent=self)
@@ -364,3 +367,22 @@ class DataImportStep(BaseStep):
         # Reset UI widgets
         if hasattr(self, "preview_widget"):
             self.preview_widget.clear_data()
+
+    def has_data(self) -> bool:
+        """Check if any data has been imported."""
+        return len(self.all_imported_data) > 0
+
+    def clear_data(self) -> None:
+        """Clear imported data - can be called from wizard navigation."""
+        self.logger.info("Clearing imported data")
+        self.reset()
+        self.logger.info("Data cleared successfully")
+
+    def _notify_wizard_data_changed(self) -> None:
+        """Notify parent wizard that data state has changed."""
+        parent = self.parent()
+        while parent:
+            if hasattr(parent, '_update_clear_button_visibility'):
+                parent._update_clear_button_visibility()
+                break
+            parent = parent.parent()
