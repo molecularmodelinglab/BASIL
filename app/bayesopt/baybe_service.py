@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from baybe import Campaign as BayBeCampaign
+from baybe.insights.shap import SHAPInsight
 from baybe.recommenders import (
     BotorchRecommender,
     RandomRecommender,
@@ -115,16 +116,16 @@ class BayBeIntegrationService:
             try:
                 self.logger.info("Saving BayBE campaign state")
                 with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
-                    f.write(self.baybe_campaign.to_json())
+                    self.baybe_campaign.to_json(f)
             except Exception as e:
                 self.logger.error(f"Error saving BayBE campaign state: {str(e)}")
 
     def _load_baybe_campaign_state(self) -> None:
         """Load the saved state of the BayBE campaign."""
         try:
+            self.logger.info("Loading BayBE campaign state")
             with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
-                campaign_data = f.read()
-                self.baybe_campaign = BayBeCampaign.from_json(campaign_data)
+                  self.baybe_campaign = BayBeCampaign.from_json(f)
         except FileNotFoundError:
             self.logger.warning("No saved BayBE campaign state found")
         except Exception as e:
@@ -170,7 +171,6 @@ class BayBeIntegrationService:
         """Initialize a new BayBE campaign."""
         self.logger.info("Initializing new BayBE campaign")
 
-        # Validate campaign configuration
         validation_errors = self._validate_campaign()
         if validation_errors:
             raise ValueError(f"Campaign validation failed: {'; '.join(validation_errors)}")
@@ -188,7 +188,6 @@ class BayBeIntegrationService:
             for target_name, weight in weights.items():
                 self.logger.info(f"  - {target_name}: {weight:.3f} weight ({weight * 100:.1f}%)")
 
-        # Log multi-objective note if applicable
         multi_obj_note = ObjectiveConverter.create_multi_objective_note(self.campaign.targets)
         if multi_obj_note:
             self.logger.info(multi_obj_note)
@@ -366,6 +365,38 @@ class BayBeIntegrationService:
             ],
         }
 
+    def get_shap_insight(self):
+        """
+        Generate a SHAP insight object.
+
+        Returns:
+            baybe.insights.shap.SHAPInsight: The generated insight object
+        """
+        try:
+            if self.baybe_campaign is None:
+                try:
+                    self._load_baybe_campaign_state()
+                except Exception:
+                    pass
+            
+            if self.baybe_campaign is None:
+                self._initialize_baybe_campaign()
+
+            latest_data = self._load_existing_experimental_data()
+            if latest_data is not None and not latest_data.empty:
+                try:
+                    self.baybe_campaign.add_measurements(latest_data, numerical_measurements_must_be_within_tolerance=False)
+                except Exception as e:
+                    self.logger.warning(f"Could not add measurements for SHAP explanation: {e}")
+
+            if len(self.baybe_campaign.measurements) < 2:
+                raise ValueError("At least 2 completed runs are required to generate explanations.")
+
+            return SHAPInsight.from_campaign(self.baybe_campaign)
+
+        except Exception as e:
+            self.logger.error(f"Error generating SHAP insight: {str(e)}")
+            raise e
 
 class BayBeService(BayBeIntegrationService):
     """
@@ -390,16 +421,12 @@ class MockBayBeService(BayBeIntegrationService):
 
         self.logger.info("Using Mock BayBe Service for development")
 
-        # Simulate processing time (faster for first run, slower for subsequent)
         if not has_previous_data:
-            # First run is quick
             time.sleep(0.5)
         else:
-            # Subsequent runs take longer (optimization)
             time.sleep(1 + (num_experiments * 0.05))
 
         try:
-            # Try to use real BayBE implementation
             return super().generate_experiments(num_experiments, has_previous_data)
         except Exception as e:
             self.logger.warning(f"BayBE failed, using random generation: {str(e)}")
