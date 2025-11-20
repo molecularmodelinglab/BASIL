@@ -58,7 +58,14 @@ class TargetInputDelegate(QStyledItemDelegate):
         value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value is not None:
             editor.setText(str(value))
-            QTimer.singleShot(0, editor.deselect)
+
+            def safe_deselect():
+                try:
+                    editor.deselect()
+                except RuntimeError:
+                    pass
+
+            QTimer.singleShot(0, safe_deselect)
 
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
@@ -104,7 +111,14 @@ class ParameterInputDelegate(QStyledItemDelegate):
         value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value is not None:
             editor.setText(str(value))
-            QTimer.singleShot(0, editor.deselect)
+
+            def safe_deselect():
+                try:
+                    editor.deselect()
+                except RuntimeError:
+                    pass
+
+            QTimer.singleShot(0, safe_deselect)
 
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
@@ -249,7 +263,7 @@ class ExperimentsTableScreen(BaseWidget):
         self.param_delegate = ParameterInputDelegate()
         for col in range(len(self._param_columns)):
             self.table.setItemDelegateForColumn(col, self.param_delegate)
-    
+
         self.target_delegate = TargetInputDelegate()
         for target_idx, target in enumerate(self.campaign.targets):
             col = len(self._param_columns) + target_idx

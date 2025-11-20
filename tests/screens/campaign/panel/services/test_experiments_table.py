@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QTableWidgetItem
 
 from app.models.campaign import Campaign, Target
 from app.models.parameters.types import Categorical, ContinuousNumerical
-from app.screens.campaign.panel.services.experiments_table import ExperimentsTableScreen, LargeInputDelegate
+from app.screens.campaign.panel.services.experiments_table import ExperimentsTableScreen, TargetInputDelegate
 
 
 @pytest.fixture
@@ -92,16 +92,16 @@ class TestExperimentsTableScreen:
         expected_columns = len(experiments_table_screen._param_columns) + len(experiments_table_screen._target_columns)
         assert table.columnCount() == expected_columns
 
-    def test_parameter_columns_readonly(self, experiments_table_screen):
-        """Test that parameter columns are read-only."""
+    def test_parameter_columns_editable(self, experiments_table_screen):
+        """Test that parameter columns are editable."""
         table = experiments_table_screen.table
 
-        # Parameter columns should be read-only
+        # Parameter columns should be editable
         for param_col_idx in range(len(experiments_table_screen._param_columns)):
             for row in range(table.rowCount()):
                 item = table.item(row, param_col_idx)
                 if item:
-                    assert not (item.flags() & Qt.ItemFlag.ItemIsEditable)
+                    assert item.flags() & Qt.ItemFlag.ItemIsEditable
 
     def test_target_columns_editable(self, experiments_table_screen):
         """Test that target columns are editable."""
@@ -332,8 +332,8 @@ class TestLargeInputDelegate:
 
     @pytest.fixture
     def delegate(self):
-        """Create a LargeInputDelegate for testing."""
-        return LargeInputDelegate()
+        """Create a TargetInputDelegate for testing."""
+        return TargetInputDelegate()
 
     def test_delegate_creation(self, delegate):
         """Test that the delegate can be created."""
