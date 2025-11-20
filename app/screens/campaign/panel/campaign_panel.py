@@ -10,8 +10,8 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QStackedWidget, QVBoxLayout, 
 
 from app.core.base import BaseScreen, BaseWidget
 from app.models.campaign import Campaign
-from app.screens.campaign.panel.parameters_panel import ParametersPanel
 from app.screens.campaign.panel.explanations_panel import ExplanationsPanel
+from app.screens.campaign.panel.parameters_panel import ParametersPanel
 from app.screens.campaign.panel.runs_panel import RunsPanel
 from app.screens.campaign.panel.settings_panel import SettingsPanel
 from app.shared.components.buttons import PrimaryButton, SecondaryButton
