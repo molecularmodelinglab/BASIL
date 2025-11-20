@@ -29,6 +29,35 @@ class RunCard(Card):
         super().__init__(parent)
         self._setup_card()
 
+    @staticmethod
+    def _extract_target_names(targets: List[Any]) -> List[str]:
+        names: List[str] = []
+        for target in targets or []:
+            if isinstance(target, dict):
+                name = target.get("name")
+            elif hasattr(target, "name"):
+                name = getattr(target, "name")
+            else:
+                name = str(target) if target is not None else None
+
+            if name:
+                names.append(name)
+
+        return names
+
+    @staticmethod
+    def _experiment_complete(experiment: Dict[str, Any], target_names: List[str]) -> bool:
+        if not target_names:
+            return True
+
+        for target_name in target_names:
+            value = experiment.get(target_name)
+            if value is None:
+                return False
+            if isinstance(value, str) and not value.strip():
+                return False
+        return True
+
     def _setup_card(self):
         """Setup the run card UI."""
         self.setMinimumHeight(110)
@@ -49,14 +78,10 @@ class RunCard(Card):
         header_layout.addWidget(run_title)
 
         # Compute completion to infer status
-        experiments_count = len(self.run_data.get("experiments", []))
-        completed_count = sum(
-            1
-            for exp in self.run_data.get("experiments", [])
-            if any(
-                target["name"] in exp and exp[target["name"]] is not None for target in self.run_data.get("targets", [])
-            )
-        )
+        experiments = self.run_data.get("experiments", []) or []
+        experiments_count = len(experiments)
+        target_names = self._extract_target_names(self.run_data.get("targets", []))
+        completed_count = sum(1 for exp in experiments if self._experiment_complete(exp, target_names))
         completion_percentage = (completed_count / experiments_count) * 100 if experiments_count > 0 else 0
 
         # Derive status from completion progress
@@ -84,10 +109,7 @@ class RunCard(Card):
         if completed_count > 0:
             details_text += f" • {completed_count} completed"
 
-        if self.run_data.get("targets"):
-            target_names = [
-                t.get("name", t) if isinstance(t, dict) else str(t) for t in self.run_data.get("targets", [])
-            ]
+        if target_names:
             details_text += f" • Targets: {', '.join(target_names)}"
 
         details_label = QLabel(details_text)
