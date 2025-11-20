@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QStackedWidget, QVBoxLayout, 
 from app.core.base import BaseScreen, BaseWidget
 from app.models.campaign import Campaign
 from app.screens.campaign.panel.parameters_panel import ParametersPanel
+from app.screens.campaign.panel.explanations_panel import ExplanationsPanel
 from app.screens.campaign.panel.runs_panel import RunsPanel
 from app.screens.campaign.panel.settings_panel import SettingsPanel
 from app.shared.components.buttons import PrimaryButton, SecondaryButton
@@ -20,13 +21,14 @@ from app.shared.styles.theme import get_navigation_styles, get_tab_styles, get_w
 class CampaignPanelScreen(BaseScreen):
     """
     Base screen for the campaign panel.
-    Manages navigation between Runs, Parameters, and Settings tabs.
+    Manages navigation between Runs, Parameters, Explanations, and Settings tabs.
     """
 
     APP_TITLE = "BASIL"
     HOME_BUTTON_TEXT = "Home"
     RUNS_TAB_TEXT = "Runs"
     PARAMETERS_TAB_TEXT = "Parameters"
+    EXPLANATIONS_TAB_TEXT = "Explanations"
     SETTINGS_TAB_TEXT = "Settings"
     DEFAULT_CAMPAIGN_NAME = "My Cool Campaign 1"
 
@@ -141,6 +143,7 @@ class CampaignPanelScreen(BaseScreen):
 
         self.tabs[self.RUNS_TAB_TEXT] = self._create_tab_button(self.RUNS_TAB_TEXT)
         self.tabs[self.PARAMETERS_TAB_TEXT] = self._create_tab_button(self.PARAMETERS_TAB_TEXT)
+        self.tabs[self.EXPLANATIONS_TAB_TEXT] = self._create_tab_button(self.EXPLANATIONS_TAB_TEXT)
         self.tabs[self.SETTINGS_TAB_TEXT] = self._create_tab_button(self.SETTINGS_TAB_TEXT)
 
         for name, button in self.tabs.items():
@@ -170,11 +173,13 @@ class CampaignPanelScreen(BaseScreen):
         """Create panels and connect their signals."""
         self.runs_panel = RunsPanel(self.campaign, self.workspace_path)
         self.parameters_panel = ParametersPanel(self.campaign, self.workspace_path)
+        self.explanations_panel = ExplanationsPanel(self.campaign, self.workspace_path)
         self.settings_panel = SettingsPanel(self.campaign, self.workspace_path)
 
         self.panels = {
             self.RUNS_TAB_TEXT: self.runs_panel,
             self.PARAMETERS_TAB_TEXT: self.parameters_panel,
+            self.EXPLANATIONS_TAB_TEXT: self.explanations_panel,
             self.SETTINGS_TAB_TEXT: self.settings_panel,
         }
 
@@ -184,6 +189,7 @@ class CampaignPanelScreen(BaseScreen):
 
         self.stacked_widget.addWidget(self.runs_panel)
         self.stacked_widget.addWidget(self.parameters_panel)
+        self.stacked_widget.addWidget(self.explanations_panel)
         self.stacked_widget.addWidget(self.settings_panel)
 
         self.switch_tab("Runs")
