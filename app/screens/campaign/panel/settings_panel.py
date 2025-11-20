@@ -112,13 +112,11 @@ class SettingsPanel(BaseWidget):
         name_label.setObjectName("FormLabel")
         form_layout.addRow(name_label, name_section)
 
-        # Description section
         description_section = self._create_description_section()
         desc_label = QLabel(self.DESCRIPTION_LABEL)
         desc_label.setObjectName("FormLabel")
         form_layout.addRow(desc_label, description_section)
 
-        # Surrogate model and acquisition function (read-only)
         if self.campaign:
             surrogate_label = QLabel("Surrogate Model")
             surrogate_label.setObjectName("FormLabel")
@@ -139,14 +137,12 @@ class SettingsPanel(BaseWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        # Name input field
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText(self.NAME_PLACEHOLDER)
         self.name_input.setObjectName("FormInput")
-        self.name_input.setReadOnly(True)  # Read-only by default
+        self.name_input.setReadOnly(True) 
         layout.addWidget(self.name_input)
 
-        # Rename button
         self.rename_button = PrimaryButton(self.RENAME_BUTTON_TEXT)
         self.rename_button.setFixedWidth(120)
         self.rename_button.clicked.connect(self._handle_rename_click)
@@ -161,15 +157,13 @@ class SettingsPanel(BaseWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        # Description text area
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText(self.DESCRIPTION_PLACEHOLDER)
         self.description_input.setFixedHeight(self.DESCRIPTION_HEIGHT)
         self.description_input.setObjectName("FormInput")
-        self.description_input.setReadOnly(True)  # Read-only by default
+        self.description_input.setReadOnly(True)
         layout.addWidget(self.description_input)
 
-        # Edit button (right-aligned)
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         self.edit_button = PrimaryButton(self.EDIT_BUTTON_TEXT)
@@ -183,13 +177,11 @@ class SettingsPanel(BaseWidget):
     def _handle_rename_click(self):
         """Handle rename button click - toggle edit mode for name."""
         if self.name_input.isReadOnly():
-            # Switch to edit mode
             self.name_input.setReadOnly(False)
             self.name_input.setFocus()
             self.name_input.selectAll()
             self.rename_button.setText(self.SAVE_BUTTON_TEXT)
         else:
-            # Save and switch back to read-only mode
             new_name = self.name_input.text().strip()
             if new_name and self.campaign:
                 old_name = self.campaign.name
@@ -209,12 +201,10 @@ class SettingsPanel(BaseWidget):
     def _handle_edit_click(self):
         """Handle edit button click - toggle edit mode for description."""
         if self.description_input.isReadOnly():
-            # Switch to edit mode
             self.description_input.setReadOnly(False)
             self.description_input.setFocus()
             self.edit_button.setText(self.SAVE_BUTTON_TEXT)
         else:
-            # Save and switch back to read-only mode
             new_description = self.description_input.toPlainText().strip()
             if self.campaign:
                 old_description = self.campaign.description
