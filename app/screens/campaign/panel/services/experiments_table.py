@@ -58,7 +58,6 @@ class LargeInputDelegate(QStyledItemDelegate):
         value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value is not None:
             editor.setText(str(value))
-            editor.deselect()
 
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
@@ -104,7 +103,6 @@ class ParameterInputDelegate(QStyledItemDelegate):
         value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value is not None:
             editor.setText(str(value))
-            editor.deselect()
 
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
@@ -273,8 +271,7 @@ class ExperimentsTableScreen(BaseWidget):
 
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
-        self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
-        self.table.clearSelection()
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 
         self.table.verticalHeader().setVisible(True)
         self.table.verticalHeader().setDefaultSectionSize(50)

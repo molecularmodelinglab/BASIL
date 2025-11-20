@@ -140,7 +140,7 @@ class SettingsPanel(BaseWidget):
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText(self.NAME_PLACEHOLDER)
         self.name_input.setObjectName("FormInput")
-        self.name_input.setReadOnly(True) 
+        self.name_input.setReadOnly(True)
         layout.addWidget(self.name_input)
 
         self.rename_button = PrimaryButton(self.RENAME_BUTTON_TEXT)

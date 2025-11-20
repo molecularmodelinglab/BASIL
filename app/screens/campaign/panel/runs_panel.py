@@ -212,10 +212,7 @@ class RunsPanel(BaseWidget):
 
             InfoDialog.show_info(
                 "Target Data Required",
-                (
-                    f"Check Run {run_number}."
-                    f"\n{status_line}\nPlease finish entering results before generating new runs."
-                ),
+                (f"Check Run {run_number}.\n{status_line}\nPlease finish entering results before generating new runs."),
                 parent=self,
             )
             return
