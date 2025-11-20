@@ -7,7 +7,7 @@ import math
 import sys
 from typing import Any, Dict, List
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QDoubleValidator, QFont
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -30,7 +30,7 @@ from app.shared.components.cards import Card
 from app.shared.components.dialogs import ConfirmationDialog, ErrorDialog, InfoDialog
 
 
-class LargeInputDelegate(QStyledItemDelegate):
+class TargetInputDelegate(QStyledItemDelegate):
     """Custom delegate for larger input fields in table cells."""
 
     def createEditor(self, parent, option, index):
@@ -58,6 +58,7 @@ class LargeInputDelegate(QStyledItemDelegate):
         value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value is not None:
             editor.setText(str(value))
+            QTimer.singleShot(0, editor.deselect)
 
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
@@ -103,6 +104,7 @@ class ParameterInputDelegate(QStyledItemDelegate):
         value = index.model().data(index, Qt.ItemDataRole.EditRole)
         if value is not None:
             editor.setText(str(value))
+            QTimer.singleShot(0, editor.deselect)
 
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
@@ -218,17 +220,21 @@ class ExperimentsTableScreen(BaseWidget):
 
         campaign_target_names = {target.name for target in self.campaign.targets}
         param_columns: List[str] = []
-        target_columns: List[str] = []
 
+        for param in self.campaign.parameters:
+            if param.name in all_experiment_keys:
+                param_columns.append(param.name)
+
+        existing_param_set = set(param_columns)
+        extra_params = []
         for key in all_experiment_keys:
-            if key in campaign_target_names:
-                target_columns.append(key)
-            else:
-                param_columns.append(key)
+            if key not in campaign_target_names and key not in existing_param_set:
+                extra_params.append(key)
+        param_columns.extend(sorted(extra_params))
 
+        target_columns: List[str] = []
         for target in self.campaign.targets:
-            if target.name not in target_columns:
-                target_columns.append(target.name)
+            target_columns.append(target.name)
 
         self._param_columns = param_columns
         self._target_columns = target_columns
@@ -243,12 +249,11 @@ class ExperimentsTableScreen(BaseWidget):
         self.param_delegate = ParameterInputDelegate()
         for col in range(len(self._param_columns)):
             self.table.setItemDelegateForColumn(col, self.param_delegate)
-
-        self.large_input_delegate = LargeInputDelegate()
+    
+        self.target_delegate = TargetInputDelegate()
         for target_idx, target in enumerate(self.campaign.targets):
             col = len(self._param_columns) + target_idx
-            self.table.setItemDelegateForColumn(col, self.large_input_delegate)
-
+            self.table.setItemDelegateForColumn(col, self.target_delegate)
         for row, experiment in enumerate(self.experiments):
             # parms
             for col, param_name in enumerate(self._param_columns):
@@ -271,7 +276,8 @@ class ExperimentsTableScreen(BaseWidget):
 
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.table.clearSelection()
 
         self.table.verticalHeader().setVisible(True)
         self.table.verticalHeader().setDefaultSectionSize(50)
@@ -345,8 +351,6 @@ class ExperimentsTableScreen(BaseWidget):
             self.instructions_label.setStyleSheet("color: #28a745; font-size: 12px; padding: 10px; font-weight: bold;")
 
             import weakref
-
-            from PySide6.QtCore import QTimer
 
             weak_self = weakref.ref(self)
 
