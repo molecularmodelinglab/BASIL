@@ -131,9 +131,12 @@ class BayBeIntegrationService:
         except Exception as e:
             self.logger.error(f"Error loading BayBE campaign state: {str(e)}")
 
-    def _load_existing_experimental_data(self) -> Optional[pd.DataFrame]:
+    def _load_existing_experimental_data(self, all_data: bool = False) -> Optional[pd.DataFrame]:
         """
         Load existing experimental data from campaign folder.
+
+        Args:
+            all_data: If True, loads all CSV files. If False, loads only the latest.
 
         Returns:
             DataFrame with existing experimental data, or None if not found
@@ -147,11 +150,26 @@ class BayBeIntegrationService:
             if not csv_files:
                 return None
 
-            # Use the most recent CSV file in runs folder
-            latest_file = max(csv_files, key=lambda f: f.stat().st_mtime)
-            self.logger.info(f"Loading data from: {latest_file}")
+            if all_data:
+                self.logger.info(f"Found {len(csv_files)} data files in {runs_dir}")
+                dfs = []
+                for csv_file in csv_files:
+                    try:
+                        df = pd.read_csv(csv_file)
+                        dfs.append(df)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to read {csv_file}: {e}")
 
-            df = pd.read_csv(latest_file)
+                if not dfs:
+                    return None
+
+                df = pd.concat(dfs, ignore_index=True)
+                self.logger.info(f"Loaded total {len(df)} rows of experimental data")
+            else:
+                # Use the most recent CSV file in runs folder
+                latest_file = max(csv_files, key=lambda f: f.stat().st_mtime)
+                self.logger.info(f"Loading data from: {latest_file}")
+                df = pd.read_csv(latest_file)
 
             target_names = ObjectiveConverter.get_target_names(self.campaign.targets)
             missing_targets = [name for name in target_names if name not in df.columns]
@@ -399,6 +417,18 @@ class BayBeIntegrationService:
         except Exception as e:
             self.logger.error(f"Error generating SHAP insight: {str(e)}")
             raise e
+
+    def get_experimental_data(self, all_data: bool = True) -> Optional[pd.DataFrame]:
+        """
+        Public method to load existing experimental data.
+
+        Args:
+            all_data: If True, loads all CSV files. If False, loads only the latest.
+
+        Returns:
+            DataFrame with existing experimental data, or None if not found
+        """
+        return self._load_existing_experimental_data(all_data=all_data)
 
 
 class BayBeService(BayBeIntegrationService):
