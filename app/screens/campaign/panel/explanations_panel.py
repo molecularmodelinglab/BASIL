@@ -36,6 +36,8 @@ class ExplanationsPanel(BaseWidget):
     PANEL_TITLE = "Explanations"
     MAIN_MARGINS = (30, 30, 30, 30)
     MAIN_LAYOUT_SPACING = 20
+    GENERATE_PLOT_BUTTON_TEXT = "Generate Plot"
+    DOWNLOAD_PLOT_BUTTON_TEXT = "Save Plot"
     ALLOWED_PLOT_TYPES = ["bar", "beeswarm", "heatmap", "scatter"]
 
     def __init__(self, campaign, workspace_path, parent=None):
@@ -76,11 +78,11 @@ class ExplanationsPanel(BaseWidget):
             header_layout.addWidget(QLabel("Target:"))
             header_layout.addWidget(self.target_combo)
 
-        self.generate_button = PrimaryButton("Generate Plot")
+        self.generate_button = PrimaryButton(self.GENERATE_PLOT_BUTTON_TEXT)
         self.generate_button.clicked.connect(self._generate_plot)
         header_layout.addWidget(self.generate_button)
 
-        self.download_button = SecondaryButton("Download Plot")
+        self.download_button = SecondaryButton(self.DOWNLOAD_PLOT_BUTTON_TEXT)
         self.download_button.clicked.connect(self._download_plot)
         self.download_button.setEnabled(False)
         header_layout.addWidget(self.download_button)
