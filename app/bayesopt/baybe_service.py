@@ -125,7 +125,7 @@ class BayBeIntegrationService:
         try:
             self.logger.info("Loading BayBE campaign state")
             with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
-                  self.baybe_campaign = BayBeCampaign.from_json(f)
+                self.baybe_campaign = BayBeCampaign.from_json(f)
         except FileNotFoundError:
             self.logger.warning("No saved BayBE campaign state found")
         except Exception as e:
@@ -378,14 +378,16 @@ class BayBeIntegrationService:
                     self._load_baybe_campaign_state()
                 except Exception:
                     pass
-            
+
             if self.baybe_campaign is None:
                 self._initialize_baybe_campaign()
 
             latest_data = self._load_existing_experimental_data()
             if latest_data is not None and not latest_data.empty:
                 try:
-                    self.baybe_campaign.add_measurements(latest_data, numerical_measurements_must_be_within_tolerance=False)
+                    self.baybe_campaign.add_measurements(
+                        latest_data, numerical_measurements_must_be_within_tolerance=False
+                    )
                 except Exception as e:
                     self.logger.warning(f"Could not add measurements for SHAP explanation: {e}")
 
@@ -397,6 +399,7 @@ class BayBeIntegrationService:
         except Exception as e:
             self.logger.error(f"Error generating SHAP insight: {str(e)}")
             raise e
+
 
 class BayBeService(BayBeIntegrationService):
     """

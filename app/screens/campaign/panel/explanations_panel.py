@@ -1,25 +1,18 @@
-from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QLabel,
-    QComboBox,
-    QHBoxLayout,
-    QWidget,
-    QProgressBar,
-    QFileDialog
-)
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-import matplotlib.pyplot as plt
+from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtWidgets import QComboBox, QFileDialog, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
 
-from app.core.base import BaseWidget
 from app.bayesopt.baybe_service import BayBeService
+from app.core.base import BaseWidget
 from app.shared.components.buttons import PrimaryButton, SecondaryButton
-from app.shared.components.cards import EmptyStateCard
 from app.shared.components.dialogs import ErrorDialog
+
 
 class ExplanationWorker(QThread):
     """Worker thread for generating SHAP explanations."""
+
     finished = Signal(object)
     error = Signal(str)
 
@@ -35,6 +28,7 @@ class ExplanationWorker(QThread):
             self.finished.emit(insight)
         except Exception as e:
             self.error.emit(str(e))
+
 
 class ExplanationsPanel(BaseWidget):
     """Panel for the 'Explanations' tab showing SHAP plots."""
@@ -59,14 +53,14 @@ class ExplanationsPanel(BaseWidget):
         main_layout.setSpacing(self.MAIN_LAYOUT_SPACING)
 
         header_layout = QHBoxLayout()
-        
+
         title_label = QLabel(self.PANEL_TITLE)
         title_label.setObjectName("PanelTitle")
         title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         header_layout.addWidget(title_label)
-        
+
         header_layout.addStretch()
-        
+
         self.plot_type_combo = QComboBox()
         self.plot_type_combo.addItems(self.ALLOWED_PLOT_TYPES)
         self.plot_type_combo.setFixedWidth(150)
@@ -101,12 +95,14 @@ class ExplanationsPanel(BaseWidget):
         self.plot_container = QWidget()
         self.plot_layout = QVBoxLayout(self.plot_container)
         self.plot_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.info_label = QLabel("Select options and click 'Generate Plot' to see explanations.\nRequires at least 2 completed runs.")
+
+        self.info_label = QLabel(
+            "Select options and click 'Generate Plot' to see explanations.\nRequires at least 2 completed runs."
+        )
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setStyleSheet("color: #666; font-size: 14px;")
         self.plot_layout.addWidget(self.info_label)
-        
+
         main_layout.addWidget(self.plot_container)
         main_layout.setStretchFactor(self.plot_container, 1)
 
@@ -115,7 +111,7 @@ class ExplanationsPanel(BaseWidget):
         self.generate_button.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.info_label.setVisible(False)
-        
+
         if self.canvas:
             self.plot_layout.removeWidget(self.canvas)
             self.canvas.deleteLater()
@@ -134,41 +130,39 @@ class ExplanationsPanel(BaseWidget):
         try:
             plot_type = self.plot_type_combo.currentText()
             target_index = self.target_combo.currentIndex()
-            
 
-            plt.close('all') # - close all existing figures
-            
+            plt.close("all")  # - close all existing figures
 
-            original_show = plt.show # override to prevent blocking
+            original_show = plt.show  # override to prevent blocking
             plt.show = lambda *args, **kwargs: None
-            
+
             try:
                 result = insight.plot(plot_type, target_index=target_index)
             finally:
                 plt.show = original_show
-            
-            if hasattr(result, 'figure'):
+
+            if hasattr(result, "figure"):
                 fig = result.figure
             elif isinstance(result, Figure):
                 fig = result
             else:
                 fig = plt.gcf()
-            
+
             fig.set_size_inches(6, 4)
             fig.tight_layout()
 
             self.current_figure = fig
             self.canvas = FigureCanvasQTAgg(fig)
-            
+
             self.canvas.setFixedSize(650, 450)
-            
+
             self.plot_layout.addWidget(self.canvas, 0, Qt.AlignmentFlag.AlignCenter)
             self.canvas.draw()
-            
+
             self.generate_button.setEnabled(True)
             self.download_button.setEnabled(True)
             self.progress_bar.setVisible(False)
-            
+
         except Exception as e:
             self._handle_plot_error(str(e))
 
@@ -178,10 +172,7 @@ class ExplanationsPanel(BaseWidget):
             return
 
         file_path, selected_filter = QFileDialog.getSaveFileName(
-            self,
-            "Save Plot",
-            self.workspace_path,
-            "PNG Image (*.png);;JPEG Image (*.jpg);;SVG Image (*.svg)"
+            self, "Save Plot", self.workspace_path, "PNG Image (*.png);;JPEG Image (*.jpg);;SVG Image (*.svg)"
         )
 
         if file_path:
@@ -197,7 +188,7 @@ class ExplanationsPanel(BaseWidget):
         self.progress_bar.setVisible(False)
         self.info_label.setVisible(True)
         self.info_label.setText(f"Error generating plot:\n{error_msg}")
-        
+
         ErrorDialog.show_error("Plot Generation Failed", error_msg, parent=self)
 
     def set_campaign(self, campaign):
