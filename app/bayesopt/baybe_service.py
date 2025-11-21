@@ -2,6 +2,7 @@
 BayBe integration service for experiment generation and optimization.
 """
 
+import contextlib
 import logging
 import random
 from datetime import datetime
@@ -92,7 +93,12 @@ class BayBeIntegrationService:
             if self.baybe_campaign is None:
                 raise RuntimeError("BayBe campaign was not initialized")
 
-            recommendations = self.baybe_campaign.recommend(batch_size=num_experiments)
+            log_handler = next((h for h in self.logger.handlers if isinstance(h, logging.FileHandler)), None)
+            if log_handler and hasattr(log_handler, "stream"):
+                with contextlib.redirect_stdout(log_handler.stream), contextlib.redirect_stderr(log_handler.stream):
+                    recommendations = self.baybe_campaign.recommend(batch_size=num_experiments)
+            else:
+                recommendations = self.baybe_campaign.recommend(batch_size=num_experiments)
 
             experiments = recommendations.to_dict("records")
 
