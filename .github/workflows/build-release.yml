@@ -193,10 +193,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install build tools (UPX, OpenBLAS, GCC)
+      - name: Install build tools (UPX, OpenBLAS, GCC, LLVM, libomp)
         run: |
           brew update
-          brew install upx openblas gcc create-dmg
+          brew install upx openblas gcc llvm libomp create-dmg
 
       - name: Install Poetry and dependencies
         run: |
@@ -206,6 +206,11 @@ jobs:
 
       - name: Rebuild SciPy from source with OpenBLAS (macOS 12 compatible)
         run: |
+          export CC=/opt/homebrew/opt/llvm/bin/clang
+          export CXX=/opt/homebrew/opt/llvm/bin/clang++
+          export LDFLAGS="-L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib"
+          export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+
           # Detect SciPy version installed by Poetry (e.g. 1.16.2)
           SCIPY_VERSION=$(poetry run python -c "import scipy; print(scipy.__version__)")
           echo "SciPy version in environment: $SCIPY_VERSION"
