@@ -23,11 +23,8 @@ jobs:
         id: clean-version
         run: |
           VERSION="${{ github.event.inputs.version || github.event.release.tag_name || '1.0.0' }}"
-          # Remove 'v' prefix if it exists
           CLEAN_VERSION="${VERSION#v}"
           echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
-          echo "Original version: $VERSION"
-          echo "Cleaned version: $CLEAN_VERSION"
 
   build-windows:
     needs: prepare-version
@@ -118,34 +115,6 @@ jobs:
           pip install poetry
           poetry install
 
-      - name: Check PySide6 deployment target
-        run: |
-          # Find QtCore location
-          PYSIDE_DIR=$(poetry run python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
-          echo "PySide6 location: $PYSIDE_DIR"
-
-          # Try different possible locations for QtCore
-          if [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore" ]; then
-            QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore"
-          elif [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore" ]; then
-            QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore"
-          elif [ -f "$PYSIDE_DIR/QtCore.abi3.so" ]; then
-            QTCORE="$PYSIDE_DIR/QtCore.abi3.so"
-          else
-            echo "Looking for QtCore files..."
-            find "$PYSIDE_DIR" -name "QtCore*" -o -name "libQt*" | head -10
-            QTCORE=$(find "$PYSIDE_DIR" -name "QtCore" -o -name "QtCore.abi3.so" | head -1)
-          fi
-
-          if [ -n "$QTCORE" ] && [ -f "$QTCORE" ]; then
-            echo "Checking: $QTCORE"
-            otool -l "$QTCORE" | grep -A 3 LC_VERSION_MIN_MACOSX || \
-            otool -l "$QTCORE" | grep -A 3 LC_BUILD_VERSION || \
-            echo "Could not find version info"
-          else
-            echo "QtCore not found, skipping check"
-          fi
-
       - name: Build ARM64 application
         env:
           MACOSX_DEPLOYMENT_TARGET: '12.0'
@@ -183,7 +152,6 @@ jobs:
   build-macos-arm64-macos12:
     needs: prepare-version
     runs-on: macos-14
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -193,7 +161,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install build tools (UPX + DMG creator)
+      - name: Install build tools
         run: |
           brew update
           brew install upx create-dmg
@@ -204,12 +172,10 @@ jobs:
           python -m pip install poetry
           poetry install
 
-      # 🔧 Key step: force SciPy wheel that is built for macOS 12 arm64
-      - name: Force SciPy macOS 12 arm64 wheel (OpenBLAS)
+      - name: Force SciPy macOS 12 arm64 wheel
         run: |
           set -e
 
-          # Detect current SciPy version in the Poetry environment
           SCIPY_VERSION=$(poetry run python - << 'EOF'
           try:
               import importlib.metadata as m
@@ -220,16 +186,11 @@ jobs:
           )
 
           if [ -z "$SCIPY_VERSION" ]; then
-            echo "SciPy is not installed yet, using 1.16.2 by default"
             SCIPY_VERSION="1.16.2"
           fi
 
-          echo "Using SciPy version: $SCIPY_VERSION"
-
           TMPDIR=$(mktemp -d)
-          echo "Downloading SciPy ${SCIPY_VERSION} wheel for macOS 12 arm64 into: $TMPDIR"
 
-          # Download the wheel that targets macOS 12, arm64, CPython 3.11
           poetry run python -m pip download \
             "scipy==${SCIPY_VERSION}" \
             --only-binary=scipy \
@@ -240,34 +201,16 @@ jobs:
             --no-deps \
             -d "$TMPDIR"
 
-          echo "Downloaded files:"
-          ls -l "$TMPDIR"
-
           WHEEL=$(ls "$TMPDIR"/scipy-"${SCIPY_VERSION}"-*.whl | head -1 || true)
           if [ -z "$WHEEL" ]; then
-            echo "ERROR: No SciPy wheel found for macOS 12 arm64 in $TMPDIR"
+            echo "ERROR: No SciPy wheel found for macOS 12 arm64"
             exit 1
           fi
 
-          echo "Using wheel: $WHEEL"
-
-          echo "Uninstalling SciPy from Poetry environment..."
           poetry run python -m pip uninstall -y scipy || true
-
-          echo "Installing macOS 12 SciPy wheel into Poetry environment..."
           poetry run python -m pip install --no-deps "$WHEEL"
 
-          echo "Verifying SciPy configuration after install:"
-          poetry run python - << 'EOF'
-          import scipy
-          print("SciPy:", scipy.__version__, "from", scipy.__file__)
-          try:
-              scipy.show_config()
-          except Exception as e:
-              print("show_config() failed:", e)
-          EOF
-
-      - name: Build ARM64 macOS 12 application bundle
+      - name: Build ARM64 macOS 12 application
         env:
           MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
@@ -280,19 +223,7 @@ jobs:
         run: |
           xattr -cr "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" 2>/dev/null || true
 
-      - name: (Debug) Inspect _fblas inside macOS 12 app bundle
-        run: |
-          APP="dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app"
-          FBLAS=$(find "$APP" -name "_fblas*.so" | head -1 || true)
-          echo "Found _fblas at: $FBLAS"
-          if [ -n "$FBLAS" ]; then
-            echo "otool -L output for _fblas:"
-            otool -L "$FBLAS"
-          else
-            echo "No _fblas library found inside app bundle."
-          fi
-
-      - name: Create macOS 12 DMG (Apple Silicon)
+      - name: Create macOS 12 DMG
         run: |
           hdiutil detach /Volumes/BASIL 2>/dev/null || true
           rm -rf dist/dmg
@@ -312,7 +243,7 @@ jobs:
               -ov -format UDZO \
               "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12.dmg"
 
-      - name: Upload macOS 12 DMG artifact
+      - name: Upload macOS 12 DMG
         uses: actions/upload-artifact@v4
         with:
           name: macos-arm64-macos12
@@ -338,34 +269,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install poetry
           poetry install
-
-      - name: Check PySide6 deployment target
-        run: |
-          # Find QtCore location
-          PYSIDE_DIR=$(poetry run python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
-          echo "PySide6 location: $PYSIDE_DIR"
-
-          # Try different possible locations for QtCore
-          if [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore" ]; then
-            QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore"
-          elif [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore" ]; then
-            QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore"
-          elif [ -f "$PYSIDE_DIR/QtCore.abi3.so" ]; then
-            QTCORE="$PYSIDE_DIR/QtCore.abi3.so"
-          else
-            echo "Looking for QtCore files..."
-            find "$PYSIDE_DIR" -name "QtCore*" -o -name "libQt*" | head -10
-            QTCORE=$(find "$PYSIDE_DIR" -name "QtCore" -o -name "QtCore.abi3.so" | head -1)
-          fi
-
-          if [ -n "$QTCORE" ] && [ -f "$QTCORE" ]; then
-            echo "Checking: $QTCORE"
-            otool -l "$QTCORE" | grep -A 3 LC_VERSION_MIN_MACOSX || \
-            otool -l "$QTCORE" | grep -A 3 LC_BUILD_VERSION || \
-            echo "Could not find version info"
-          else
-            echo "QtCore not found, skipping check"
-          fi
 
       - name: Build x86_64 application
         env:
@@ -404,12 +307,11 @@ jobs:
   build-linux:
     needs: prepare-version
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -433,22 +335,14 @@ jobs:
         run: |
           poetry install
 
-      - name: Force CPU-only PyTorch on Linux
+      - name: Force CPU-only PyTorch
         run: |
           poetry run pip install --index-url https://download.pytorch.org/whl/cpu \
             --upgrade --force-reinstall torch
 
-      - name: Verify CPU-only build
-        run: |
-          poetry run python -c "import torch; print('Torch', torch.__version__, 'CUDA:', torch.version.cuda)"
-
       - name: Build Linux application
         run: |
           poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean
-
-          echo "=== GLIBC requirement check ==="
-          ldd "dist/BASIL-v${{ needs.prepare-version.outputs.version }}/BASIL" | grep libc || true
-          objdump -T "dist/BASIL-v${{ needs.prepare-version.outputs.version }}/BASIL" | grep GLIBC | sort -u || true
 
       - name: Download AppImage tools
         run: |
@@ -463,10 +357,7 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
           cp -r dist/BASIL-v${{ needs.prepare-version.outputs.version }}/* AppDir/usr/bin/
-
-          echo "=== Looking for Python libraries ==="
           find AppDir/usr/bin -name "libpython*.so*" -exec cp {} AppDir/usr/lib/ \;
-          find AppDir/usr/bin -name "*.so*" | head -20
 
           if [ -f assets/icons/icon.png ]; then
             cp assets/icons/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/basil.png
@@ -497,19 +388,10 @@ jobs:
           chmod +x AppDir/AppRun
           chmod +x AppDir/usr/bin/BASIL
 
-          echo "=== AppDir structure ==="
-          ls -la AppDir/usr/lib/ || true
-          ls -la AppDir/usr/bin/ | head -20
-
       - name: Build AppImage
         run: |
           ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
           chmod +x BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
-
-      - name: Verify AppImage
-        run: |
-          ls -lh BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
-          file BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -518,17 +400,12 @@ jobs:
           path: BASIL-*.AppImage
 
   create-release:
-    needs: [build-windows, build-macos-arm64, build-macos-intel, build-linux]
+    needs: [build-windows, build-macos-arm64, build-macos-intel, build-linux, build-macos-arm64-macos12]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
-
-      - name: List downloaded artifacts
-        run: |
-          find . -type f
-          find . -type f -exec ls -lh {} \;
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -537,11 +414,14 @@ jobs:
             windows-x86/*.exe
             windows-x64/*.exe
             macos-arm64/*.dmg
+            macos-arm64-macos12/*.dmg
             macos-intel/*.dmg
             linux-x86_64/*.AppImage
           body: |
             ## macOS Users
-            - **Apple Silicon (M1/M2/M3/M4)**: Download `*-apple-silicon.dmg`
+            - **Apple Silicon (M1/M2/M3/M4)**:
+              - For macOS 13+ (Ventura and newer): Download `*-apple-silicon.dmg`
+              - For macOS 12 (Monterey): Download `*-apple-silicon-macos12.dmg`
             - **Intel Mac**: Download `*-intel-mac.dmg`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
