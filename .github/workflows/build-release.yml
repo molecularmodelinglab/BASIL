@@ -120,9 +120,11 @@ jobs:
 
       - name: Check PySide6 deployment target
         run: |
+          # Find QtCore location
           PYSIDE_DIR=$(poetry run python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
           echo "PySide6 location: $PYSIDE_DIR"
 
+          # Try different possible locations for QtCore
           if [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore" ]; then
             QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore"
           elif [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore" ]; then
@@ -146,7 +148,7 @@ jobs:
 
       - name: Build ARM64 application
         env:
-          MACOSX_DEPLOYMENT_TARGET: '13.3'
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
         run: |
           poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean --bundle-id com.basil.app
 
@@ -178,112 +180,6 @@ jobs:
           name: macos-arm64
           path: dist/*-apple-silicon.dmg
 
-  # ARM64 with SciPy+OpenBLAS for macOS 12 (Monterey)
-  build-macos-arm64-monterey:
-    needs: prepare-version
-    runs-on: macos-14
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install tools (UPX + OpenBLAS)
-        run: |
-          brew update
-          brew install upx openblas
-
-      - name: Install Poetry + deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install poetry
-          poetry install
-
-      - name: Force SciPy with OpenBLAS (Monterey-friendly)
-        env:
-          PKG_CONFIG_PATH: "/opt/homebrew/opt/openblas/lib/pkgconfig:${PKG_CONFIG_PATH}"
-        run: |
-          echo "Detecting currently installed SciPy version..."
-          SCIPY_VERSION=$(poetry run python -c "import scipy; print(scipy.__version__)")
-          echo "SciPy version in environment: $SCIPY_VERSION"
-
-          echo "Uninstalling SciPy wheel..."
-          poetry run python -m pip uninstall -y scipy
-
-          echo "Reinstalling SciPy $SCIPY_VERSION from source with OpenBLAS..."
-          poetry run python -m pip install --no-binary=scipy "scipy==$SCIPY_VERSION" \
-            --config-settings=setup-args=-Dblas=openblas \
-            --config-settings=setup-args=-Dlapack=openblas
-
-          echo "Verifying SciPy config after rebuild:"
-          poetry run python - << 'EOF'
-          import scipy
-          print("SciPy:", scipy.__version__, "from", scipy.__file__)
-          scipy.show_config()
-          EOF
-
-      - name: Check PySide6 deployment target (for info)
-        run: |
-          PYSIDE_DIR=$(poetry run python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
-          echo "PySide6 location: $PYSIDE_DIR"
-          if [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore" ]; then
-            QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore"
-          elif [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore" ]; then
-            QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore"
-          elif [ -f "$PYSIDE_DIR/QtCore.abi3.so" ]; then
-            QTCORE="$PYSIDE_DIR/QtCore.abi3.so"
-          else
-            echo "Looking for QtCore files..."
-            find "$PYSIDE_DIR" -name "QtCore*" -o -name "libQt*" | head -10
-            QTCORE=$(find "$PYSIDE_DIR" -name "QtCore" -o -name "QtCore.abi3.so" | head -1)
-          fi
-
-          if [ -n "$QTCORE" ] && [ -f "$QTCORE" ]; then
-            echo "Checking: $QTCORE"
-            otool -l "$QTCORE" | grep -A 3 LC_VERSION_MIN_MACOSX || \
-            otool -l "$QTCORE" | grep -A 3 LC_BUILD_VERSION || \
-            echo "Could not find version info"
-          else
-            echo "QtCore not found, skipping check"
-          fi
-
-      - name: Build ARM64 Monterey application
-        env:
-          MACOSX_DEPLOYMENT_TARGET: '12.0'
-        run: |
-          poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean --bundle-id com.basil.app.monterey
-
-      - name: Remove Quarantine Attributes
-        run: |
-          xattr -cr "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" 2>/dev/null || true
-
-      - name: Install DMG creator
-        run: brew install create-dmg
-
-      - name: Create ARM64 Monterey DMG
-        run: |
-          hdiutil detach /Volumes/BASIL 2>/dev/null || true
-          rm -rf dist/dmg
-          rm -f "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-monterey.dmg"
-
-          mkdir -p dist/dmg
-          cp -a "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" dist/dmg/BASIL.app
-
-          create-dmg \
-            --volname "BASIL" \
-            --no-internet-enable \
-            "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-monterey.dmg" \
-            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-monterey.dmg"
-
-      - name: Upload ARM64 Monterey DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm64-monterey
-          path: dist/*-apple-silicon-monterey.dmg
-
   build-macos-intel:
     needs: prepare-version
     runs-on: macos-13
@@ -307,9 +203,11 @@ jobs:
 
       - name: Check PySide6 deployment target
         run: |
+          # Find QtCore location
           PYSIDE_DIR=$(poetry run python -c "import PySide6; import os; print(os.path.dirname(PySide6.__file__))")
           echo "PySide6 location: $PYSIDE_DIR"
 
+          # Try different possible locations for QtCore
           if [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore" ]; then
             QTCORE="$PYSIDE_DIR/Qt/lib/QtCore.framework/Versions/A/QtCore"
           elif [ -f "$PYSIDE_DIR/Qt/lib/QtCore.framework/QtCore" ]; then
@@ -368,6 +266,7 @@ jobs:
   build-linux:
     needs: prepare-version
     runs-on: ubuntu-22.04
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -481,7 +380,7 @@ jobs:
           path: BASIL-*.AppImage
 
   create-release:
-    needs: [build-windows, build-macos-arm64, build-macos-arm64-monterey, build-macos-intel, build-linux]
+    needs: [build-windows, build-macos-arm64, build-macos-intel, build-linux]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
@@ -500,13 +399,11 @@ jobs:
             windows-x86/*.exe
             windows-x64/*.exe
             macos-arm64/*.dmg
-            macos-arm64-monterey/*.dmg
             macos-intel/*.dmg
             linux-x86_64/*.AppImage
           body: |
             ## macOS Users
-            - **Apple Silicon (M1/M2/M3/M4), macOS 13.3+**: Download `*-apple-silicon.dmg`
-            - **Apple Silicon, macOS 12 (Monterey)**: Download `*-apple-silicon-monterey.dmg`
+            - **Apple Silicon (M1/M2/M3/M4)**: Download `*-apple-silicon.dmg`
             - **Intel Mac**: Download `*-intel-mac.dmg`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
