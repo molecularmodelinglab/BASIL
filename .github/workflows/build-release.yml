@@ -180,6 +180,117 @@ jobs:
           name: macos-arm64
           path: dist/*-apple-silicon.dmg
 
+  build-macos-arm64-macos12:
+    needs: prepare-version
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools (UPX, OpenBLAS, GCC)
+        run: |
+          brew update
+          brew install upx openblas gcc create-dmg
+
+      - name: Install Poetry and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install poetry
+          poetry install
+
+      - name: Rebuild SciPy from source with OpenBLAS (macOS 12 compatible)
+        run: |
+          # Detect SciPy version installed by Poetry (e.g. 1.16.2)
+          SCIPY_VERSION=$(poetry run python -c "import scipy; print(scipy.__version__)")
+          echo "SciPy version in environment: $SCIPY_VERSION"
+
+          echo "Uninstalling wheel-based SciPy..."
+          poetry run python -m pip uninstall -y scipy
+
+          echo "Configuring OpenBLAS and Fortran compiler..."
+          export PKG_CONFIG_PATH="/opt/homebrew/opt/openblas/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
+          GFORTRAN_BIN=$(ls /opt/homebrew/bin/gfortran-* 2>/dev/null | head -1 || true)
+          if [ -z "$GFORTRAN_BIN" ]; then
+            echo "gfortran not found in /opt/homebrew/bin (gcc installation)."
+            ls -l /opt/homebrew/bin | grep gfortran || true
+            exit 1
+          fi
+
+          echo "Using Fortran compiler: $GFORTRAN_BIN"
+          export FC="$GFORTRAN_BIN"
+          export F77="$GFORTRAN_BIN"
+          export F90="$GFORTRAN_BIN"
+
+          echo "Reinstalling SciPy from source with OpenBLAS..."
+          poetry run python -m pip install --no-binary=scipy "scipy==${SCIPY_VERSION}" \
+            --config-settings=setup-args=-Dblas=openblas \
+            --config-settings=setup-args=-Dlapack=openblas
+
+          echo "Verifying SciPy configuration after rebuild:"
+          poetry run python - << 'EOF'
+          import scipy
+          print("SciPy:", scipy.__version__, "from", scipy.__file__)
+          scipy.show_config()
+          EOF
+
+      - name: Build ARM64 macOS 12 application bundle
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '12.0'
+        run: |
+          poetry run python build.py \
+            --version ${{ needs.prepare-version.outputs.version }} \
+            --tag-output --clean \
+            --bundle-id com.basil.app.macos12
+
+      - name: Remove quarantine attributes
+        run: |
+          xattr -cr "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" 2>/dev/null || true
+
+      - name: (Debug) Inspect _fblas inside macOS 12 app bundle
+        run: |
+          APP="dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app"
+          FBLAS=$(find "$APP" -name "_fblas*.so" | head -1 || true)
+          echo "Found _fblas at: $FBLAS"
+          if [ -n "$FBLAS" ]; then
+            echo "otool -L output for _fblas:"
+            otool -L "$FBLAS"
+          else
+            echo "No _fblas library found inside app bundle."
+          fi
+
+      - name: Create macOS 12 DMG (Apple Silicon)
+        run: |
+          hdiutil detach /Volumes/BASIL 2>/dev/null || true
+          rm -rf dist/dmg
+          rm -f "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12.dmg"
+
+          mkdir -p dist/dmg
+          cp -a "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" dist/dmg/BASIL.app
+
+          create-dmg \
+            --volname "BASIL" \
+            --no-internet-enable \
+            "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12.dmg" \
+            "dist/dmg/" \
+          || hdiutil create \
+              -volname "BASIL" \
+              -srcfolder dist/dmg \
+              -ov -format UDZO \
+              "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12.dmg"
+
+      - name: Upload macOS 12 DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-macos12
+          path: dist/*-apple-silicon-macos12.dmg
+
   build-macos-intel:
     needs: prepare-version
     runs-on: macos-13
