@@ -193,10 +193,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install build tools (UPX, OpenBLAS, GCC, LLVM, libomp)
+      - name: Install build tools (UPX + DMG creator)
         run: |
           brew update
-          brew install upx openblas gcc llvm libomp create-dmg
+          brew install upx create-dmg
 
       - name: Install Poetry and dependencies
         run: |
@@ -204,45 +204,66 @@ jobs:
           python -m pip install poetry
           poetry install
 
-      - name: Rebuild SciPy from source with OpenBLAS (macOS 12 compatible)
+      # 🔧 Key step: force SciPy wheel that is built for macOS 12 arm64
+      - name: Force SciPy macOS 12 arm64 wheel (OpenBLAS)
         run: |
-          export CC=/opt/homebrew/opt/llvm/bin/clang
-          export CXX=/opt/homebrew/opt/llvm/bin/clang++
-          export LDFLAGS="-L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib"
-          export CPPFLAGS="-I/opt/homebrew/opt/llvm/include"
+          set -e
 
-          # Detect SciPy version installed by Poetry (e.g. 1.16.2)
-          SCIPY_VERSION=$(poetry run python -c "import scipy; print(scipy.__version__)")
-          echo "SciPy version in environment: $SCIPY_VERSION"
+          # Detect current SciPy version in the Poetry environment
+          SCIPY_VERSION=$(poetry run python - << 'EOF'
+          try:
+              import importlib.metadata as m
+              print(m.version("scipy"))
+          except Exception:
+              print("")
+          EOF
+          )
 
-          echo "Uninstalling wheel-based SciPy..."
-          poetry run python -m pip uninstall -y scipy
+          if [ -z "$SCIPY_VERSION" ]; then
+            echo "SciPy is not installed yet, using 1.16.2 by default"
+            SCIPY_VERSION="1.16.2"
+          fi
 
-          echo "Configuring OpenBLAS and Fortran compiler..."
-          export PKG_CONFIG_PATH="/opt/homebrew/opt/openblas/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          echo "Using SciPy version: $SCIPY_VERSION"
 
-          GFORTRAN_BIN=$(ls /opt/homebrew/bin/gfortran-* 2>/dev/null | head -1 || true)
-          if [ -z "$GFORTRAN_BIN" ]; then
-            echo "gfortran not found in /opt/homebrew/bin (gcc installation)."
-            ls -l /opt/homebrew/bin | grep gfortran || true
+          TMPDIR=$(mktemp -d)
+          echo "Downloading SciPy ${SCIPY_VERSION} wheel for macOS 12 arm64 into: $TMPDIR"
+
+          # Download the wheel that targets macOS 12, arm64, CPython 3.11
+          poetry run python -m pip download \
+            "scipy==${SCIPY_VERSION}" \
+            --only-binary=scipy \
+            --platform macosx_12_0_arm64 \
+            --implementation cp \
+            --python-version 3.11 \
+            --abi cp311 \
+            -d "$TMPDIR"
+
+          echo "Downloaded files:"
+          ls -l "$TMPDIR"
+
+          WHEEL=$(ls "$TMPDIR"/scipy-"${SCIPY_VERSION}"-*.whl | head -1 || true)
+          if [ -z "$WHEEL" ]; then
+            echo "ERROR: No SciPy wheel found for macOS 12 arm64 in $TMPDIR"
             exit 1
           fi
 
-          echo "Using Fortran compiler: $GFORTRAN_BIN"
-          export FC="$GFORTRAN_BIN"
-          export F77="$GFORTRAN_BIN"
-          export F90="$GFORTRAN_BIN"
+          echo "Using wheel: $WHEEL"
 
-          echo "Reinstalling SciPy from source with OpenBLAS..."
-          poetry run python -m pip install --no-binary=scipy "scipy==${SCIPY_VERSION}" \
-            --config-settings=setup-args=-Dblas=openblas \
-            --config-settings=setup-args=-Dlapack=openblas
+          echo "Uninstalling SciPy from Poetry environment..."
+          poetry run python -m pip uninstall -y scipy || true
 
-          echo "Verifying SciPy configuration after rebuild:"
+          echo "Installing macOS 12 SciPy wheel into Poetry environment..."
+          poetry run python -m pip install --no-deps "$WHEEL"
+
+          echo "Verifying SciPy configuration after install:"
           poetry run python - << 'EOF'
           import scipy
           print("SciPy:", scipy.__version__, "from", scipy.__file__)
-          scipy.show_config()
+          try:
+              scipy.show_config()
+          except Exception as e:
+              print("show_config() failed:", e)
           EOF
 
       - name: Build ARM64 macOS 12 application bundle
