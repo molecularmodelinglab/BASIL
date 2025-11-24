@@ -237,6 +237,7 @@ jobs:
             --implementation cp \
             --python-version 3.11 \
             --abi cp311 \
+            --no-deps \
             -d "$TMPDIR"
 
           echo "Downloaded files:"
