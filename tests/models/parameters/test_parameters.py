@@ -152,6 +152,11 @@ def test_discrete_numerical_regular_invalid_config():
     assert not is_valid
     assert "Step size cannot be larger than the range" in msg
 
+    param = DiscreteNumericalRegular("test", 0, 10, 3)
+    is_valid, msg = param.validate()
+    assert not is_valid
+    assert "Step size does not evenly divide the range" in msg
+
 
 def test_discrete_numerical_irregular():
     param = DiscreteNumericalIrregular("test", [1, 2, 5])

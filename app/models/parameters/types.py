@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional, Union
 from app.models.enums import ParameterType
 from app.models.parameters.base import BaseParameter
 
+TOL = 1e-10
+
 
 class DiscreteNumericalRegular(BaseParameter):
     """Discrete numerical parameter with regular spacing (min, max, step)."""
@@ -50,6 +52,10 @@ class DiscreteNumericalRegular(BaseParameter):
         if self.step > (self.max_val - self.min_val):
             return False, "Step size cannot be larger than the range"
 
+        max_step = int((self.max_val - self.min_val) / self.step)
+        if self.max_val - (self.min_val + max_step * self.step) > TOL:
+            return False, "Step size does not evenly divide the range"
+
         return True, None
 
     def get_random_valid_value(self) -> float:
@@ -80,7 +86,7 @@ class DiscreteNumericalRegular(BaseParameter):
 
             # Check if value aligns with step size
             steps_from_min = (float_value - self.min_val) / self.step
-            if abs(steps_from_min - round(steps_from_min)) > 1e-10:
+            if abs(steps_from_min - round(steps_from_min)) > TOL:
                 return (
                     False,
                     f"Value {float_value} does not align with step size {self.step}",
