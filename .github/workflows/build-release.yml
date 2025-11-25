@@ -1,9 +1,6 @@
 name: Build and Release
 
 on:
-  pull_request:
-    branches:
-      - dev
   release:
     types: [published]
   workflow_dispatch:
