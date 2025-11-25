@@ -136,6 +136,12 @@ jobs:
 
           create-dmg \
             --volname "BASIL" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "BASIL.app" 175 190 \
+            --hide-extension "BASIL.app" \
+            --app-drop-link 425 190 \
             --no-internet-enable \
             "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg" \
             "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg"
@@ -231,6 +237,12 @@ jobs:
 
           create-dmg \
             --volname "BASIL" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "BASIL.app" 175 190 \
+            --hide-extension "BASIL.app" \
+            --app-drop-link 425 190 \
             --no-internet-enable \
             "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12.dmg" \
             "dist/dmg/" \
@@ -291,6 +303,12 @@ jobs:
 
           create-dmg \
             --volname "BASIL" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "BASIL.app" 175 190 \
+            --hide-extension "BASIL.app" \
+            --app-drop-link 425 190 \
             --no-internet-enable \
             "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg" \
             "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg"
