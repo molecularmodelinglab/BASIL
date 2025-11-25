@@ -6,6 +6,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 
 from PySide6.QtCore import Signal as pyqtSignal
 from PySide6.QtWidgets import QFileDialog, QHBoxLayout, QLabel, QMessageBox, QSizePolicy, QVBoxLayout, QWidget
@@ -183,7 +184,7 @@ class SelectWorkspaceScreen(BaseScreen):
         folder_path = QFileDialog.getExistingDirectory(
             self,
             self.SELECT_NEW_WORKSPACE_FOLDER_TEXT,
-            "",  # Start in home directory
+            str(Path.home()),  # Start in home directory
             QFileDialog.Option.ShowDirsOnly,
         )
         if folder_path:  # User didn't cancel
