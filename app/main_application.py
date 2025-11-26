@@ -62,7 +62,11 @@ class MainApplication(QMainWindow):
         """Loads the last workspace or shows the selection screen."""
         last_workspace = settings.get_last_workspace()
         if last_workspace and self._is_valid_workspace(last_workspace):
-            self._on_workspace_selected(last_workspace)
+            try:
+                self._on_workspace_selected(last_workspace)
+            except (PermissionError, OSError) as e:
+                self.logger.warning(f"Cannot access workspace {last_workspace}: {e}")
+                self.show_select_workspace()
         else:
             self.show_select_workspace()
 
