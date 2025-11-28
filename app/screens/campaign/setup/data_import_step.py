@@ -14,7 +14,7 @@ from app.models.parameters import ParameterSerializer
 from app.models.parameters.base import BaseParameter
 from app.screens.campaign.panel.services.runs_data_manager import RunsDataManager
 from app.shared.components.dialogs import ErrorDialog, InfoDialog
-from app.shared.components.headers import MainHeader, SectionHeader
+from app.shared.components.headers import MainHeader
 
 from .components.csv_data_importer import CSVDataImporter, CSVValidationResult
 from .components.csv_template_generator import CSVTemplateGenerator
@@ -42,14 +42,12 @@ class DataImportStep(BaseStep):
     - load_data(): Load previously imported data (if any)
     """
 
-    # UI Text Constants
     TITLE = "Data Import"
-    DESCRIPTION = "Import historical data to help optimize your campaign parameters."
+    # DESCRIPTION = "Import historical data to help optimize your campaign parameters."
     SAVE_TEMPLATE_DIALOG_TITLE = "Save CSV Template"
     DEFAULT_TEMPLATE_FILENAME = "campaign_data_template.csv"
     CSV_FILE_FILTER = "CSV Files (*.csv);;All Files (*)"
 
-    # Error Dialog Constants
     CONFIGURE_ERROR_TITLE = "Configure Error"
     CONFIGURE_PARAMETERS_MESSAGE = "Please configure parameters in Step 2 before importing data."
     IMPORT_ERROR_TITLE = "Import Error"
@@ -67,7 +65,6 @@ class DataImportStep(BaseStep):
     SAVE_ERROR_MESSAGE = "Error saving import data: {0}"
     LOAD_ERROR_MESSAGE = "Error loading import data: {0}"
 
-    # Layout Constants
     MAIN_LAYOUT_SPACING = 30
     MAIN_LAYOUT_MARGINS = (40, 40, 40, 40)
 
@@ -91,21 +88,18 @@ class DataImportStep(BaseStep):
         super().__init__(wizard_data, parent)
         self.campaign: Campaign = self.wizard_data
 
-        # Connect signals after UI is setup
         self._connect_signals()
 
     def _setup_widget(self):
         """Setup the data import step UI."""
         layout = self._create_main_layout()
 
-        # Create title and description
         title = MainHeader(self.TITLE)
         layout.addWidget(title)
 
-        description = SectionHeader(self.DESCRIPTION)
-        layout.addWidget(description)
+        # description = SectionHeader(self.DESCRIPTION)
+        # layout.addWidget(description)
 
-        # Create specialized widgets
         self.header_widget = PageHeaderWidget()
         self.upload_widget = UploadSectionWidget()
         self.template_widget = TemplateSectionWidget()

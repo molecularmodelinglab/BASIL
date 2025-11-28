@@ -37,14 +37,13 @@ from .csv_data_importer import CSVValidationResult
 class PageHeaderWidget(QWidget):
     """Widget for displaying page title and description."""
 
-    # Text Constants
-    TITLE_TEXT = "Import Previous Experiments"
+    TITLE_TEXT = "Import Existing Data"
     DESCRIPTION_TEXT = (
-        "Add existing experimental data from CSV files. This step is optional - "
+        "Add existing/historical experimental data from CSV files. This step is optional - "
         "you can skip it and create campaigns without historical data."
+        " Click 'Download CSV' to get a template file matching your campaign parameters."
     )
 
-    # Layout Constants
     NO_MARGINS = (0, 0, 0, 0)
 
     def __init__(self) -> None:
@@ -113,17 +112,13 @@ class FileValidator:
 class DragDropArea(QFrame):
     """Frame widget that handles drag & drop functionality for CSV files."""
 
-    # Signals
     file_dropped = Signal(str)  # Emitted when valid file is dropped
 
-    # UI Text Constants
     DROP_AREA_TEXT = "Drop CSV file here or"
     BROWSE_BUTTON_TEXT = "Browse CSV file"
 
-    # Error Dialog Constants
     IMPORT_ERROR_TITLE = "Import Error"
 
-    # Layout Constants
     MIN_HEIGHT = 120
     LAYOUT_SPACING = 10
     NO_MARGINS = (0, 0, 0, 0)
@@ -210,16 +205,13 @@ class UploadSectionWidget(QWidget):
 
     file_selected = Signal(str)  # Emitted when user selects a file
 
-    # UI Text Constants
     SECTION_TITLE = "Upload experimental data"
     DIALOG_TITLE = "Select CSV File"
     FILE_FILTER = "CSV files (*.csv);;All files (*.*)"
 
-    # Error Dialog Constants
     IMPORT_ERROR_TITLE = "Import Error"
     INVALID_FILE_MESSAGE = "Invalid file selected: {0}"
 
-    # Layout Constants
     NO_MARGINS = (0, 0, 0, 0)
 
     def __init__(self) -> None:
@@ -275,11 +267,9 @@ class TemplateSectionWidget(QWidget):
 
     template_requested = Signal(str)  # Emitted with format type (csv, xlsx)
 
-    # UI Text Constants
     SECTION_TITLE = "Generate a template"
     DOWNLOAD_CSV_BUTTON_TEXT = "Download CSV"
 
-    # Layout Constants
     NO_MARGINS = (0, 0, 0, 0)
 
     def __init__(self) -> None:
