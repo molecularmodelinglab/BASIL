@@ -4,9 +4,8 @@ Tests for the VisualizationsPanel.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 import pandas as pd
-from PySide6.QtCore import Qt
+import pytest
 from PySide6.QtWidgets import QLabel
 
 from app.models.campaign import Campaign, Target
@@ -56,7 +55,9 @@ def test_load_data_populates_combos(mock_service_class, visualizations_panel):
     x_items = [visualizations_panel.x_combo.itemText(i) for i in range(visualizations_panel.x_combo.count())]
     y_items = [visualizations_panel.y_combo.itemText(i) for i in range(visualizations_panel.y_combo.count())]
     z_items = [visualizations_panel.z_combo.itemText(i) for i in range(visualizations_panel.z_combo.count())]
-    color_items = [visualizations_panel.color_combo.itemText(i) for i in range(visualizations_panel.color_combo.count())]
+    color_items = [
+        visualizations_panel.color_combo.itemText(i) for i in range(visualizations_panel.color_combo.count())
+    ]
 
     expected_columns = sorted(df.columns.tolist())
 
@@ -119,7 +120,9 @@ def test_generate_plot_3d_and_color(mock_service_class, mock_canvas_class, visua
     visualizations_panel.x_combo.setCurrentIndex(0)
     visualizations_panel.y_combo.setCurrentIndex(1)
     z_index = [visualizations_panel.z_combo.itemText(i) for i in range(visualizations_panel.z_combo.count())].index("Z")
-    color_index = [visualizations_panel.color_combo.itemText(i) for i in range(visualizations_panel.color_combo.count())].index("C")
+    color_index = [
+        visualizations_panel.color_combo.itemText(i) for i in range(visualizations_panel.color_combo.count())
+    ].index("C")
     visualizations_panel.z_combo.setCurrentIndex(z_index)
     visualizations_panel.color_combo.setCurrentIndex(color_index)
 

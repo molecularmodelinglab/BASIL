@@ -138,10 +138,8 @@ class TestExperimentsTableScreen:
         new_item = QTableWidgetItem("0.95")
         table.setItem(0, yield_col_idx, new_item)
 
-        # Save results
         experiments_table_screen._handle_save_results()
 
-        # Check that the value was updated in experiments
         assert experiments_table_screen.experiments[0]["yield"] == 0.95
 
     def test_has_unsaved_changes_false(self, experiments_table_screen):
