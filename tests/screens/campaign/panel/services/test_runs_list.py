@@ -71,15 +71,13 @@ class TestRunsListScreen:
 
     def test_screen_has_runs_cards(self, runs_list_screen, sample_runs_data):
         """Test that the screen displays run cards."""
-        # Should have created run cards for each run
-        # This test verifies the structure is created, actual rendering would need UI tests
+
         assert len(sample_runs_data) == 2
 
     def test_get_panel_buttons(self, runs_list_screen):
         """Test that the screen returns appropriate panel buttons."""
         buttons = runs_list_screen.get_panel_buttons()
 
-        # There are two buttons: Export All and Generate New Run
         assert len(buttons) == 2
         generate_button = next((b for b in buttons if b.text() == "Generate New Run"), None)
         assert generate_button is not None
