@@ -79,13 +79,16 @@ class TestRunsListScreen:
         """Test that the screen returns appropriate panel buttons."""
         buttons = runs_list_screen.get_panel_buttons()
 
-        assert len(buttons) == 1
-        assert buttons[0].text() == "Generate New Run"
+        # There are two buttons: Export All and Generate New Run
+        assert len(buttons) == 2
+        generate_button = next((b for b in buttons if b.text() == "Generate New Run"), None)
+        assert generate_button is not None
 
     def test_generate_new_run_button_signal(self, qtbot, runs_list_screen):
         """Test that clicking Generate New Run button emits signal."""
         buttons = runs_list_screen.get_panel_buttons()
-        generate_button = buttons[0]
+        generate_button = next((b for b in buttons if b.text() == "Generate New Run"), None)
+        assert generate_button is not None
 
         with qtbot.waitSignal(runs_list_screen.new_run_requested, timeout=1000):
             qtbot.mouseClick(generate_button, Qt.LeftButton)
@@ -97,8 +100,9 @@ class TestRunsListScreen:
 
         # Should still work with empty data
         buttons = screen.get_panel_buttons()
-        assert len(buttons) == 1
-        assert buttons[0].text() == "Generate New Run"
+        assert len(buttons) == 2
+        generate_button = next((b for b in buttons if b.text() == "Generate New Run"), None)
+        assert generate_button is not None
 
 
 class TestRunCard:
