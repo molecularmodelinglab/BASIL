@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
     QVBoxLayout,
     QWidget,
 )
@@ -27,7 +26,6 @@ class VisualizationsPanel(BaseWidget):
     MAIN_LAYOUT_SPACING = 20
     GENERATE_BUTTON_TEXT = "Generate Plot"
     SAVE_BUTTON_TEXT = "Save Plot"
-
 
     def __init__(self, campaign, workspace_path, parent=None):
         self.campaign = campaign
@@ -74,9 +72,9 @@ class VisualizationsPanel(BaseWidget):
         self.color_combo = QComboBox()
         self.color_combo.setFixedWidth(150)
         axes_layout.addWidget(self.color_combo, 1, 3)
-        
+
         controls_layout.addWidget(axes_widget)
-        
+
         # Spacer
         controls_layout.addStretch()
 
@@ -84,7 +82,7 @@ class VisualizationsPanel(BaseWidget):
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(10)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
-        
+
         self.generate_button = PrimaryButton(self.GENERATE_BUTTON_TEXT)
         self.generate_button.clicked.connect(self._generate_plot)
         buttons_layout.addWidget(self.generate_button)
@@ -93,10 +91,10 @@ class VisualizationsPanel(BaseWidget):
         self.download_button.clicked.connect(self._download_plot)
         self.download_button.setEnabled(False)
         buttons_layout.addWidget(self.download_button)
-        
+
         buttons_widget = QWidget()
         buttons_widget.setLayout(buttons_layout)
-        
+
         controls_layout.addWidget(buttons_widget, 0, Qt.AlignmentFlag.AlignBottom)
 
         main_layout.addWidget(controls_widget)
@@ -105,9 +103,7 @@ class VisualizationsPanel(BaseWidget):
         self.plot_layout = QVBoxLayout(self.plot_container)
         self.plot_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.info_label = QLabel(
-            "Select axes and click 'Generate Plot'.\nRequires experimental data."
-        )
+        self.info_label = QLabel("Select axes and click 'Generate Plot'.\nRequires experimental data.")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.info_label.setStyleSheet("color: #666; font-size: 14px;")
         self.plot_layout.addWidget(self.info_label)
@@ -125,11 +121,11 @@ class VisualizationsPanel(BaseWidget):
 
             if self.df is not None and not self.df.empty:
                 columns = sorted(self.df.columns.tolist())
-                
+
                 # Populate combos
                 self.x_combo.clear()
                 self.x_combo.addItems(columns)
-                
+
                 self.y_combo.clear()
                 self.y_combo.addItems(columns)
                 if len(columns) > 1:
@@ -142,7 +138,7 @@ class VisualizationsPanel(BaseWidget):
                 self.color_combo.clear()
                 self.color_combo.addItem("None")
                 self.color_combo.addItems(columns)
-                
+
                 self.info_label.setText("Select axes and click 'Generate Plot'.")
                 self.generate_button.setEnabled(True)
             else:
@@ -171,32 +167,32 @@ class VisualizationsPanel(BaseWidget):
             self.plot_layout.removeWidget(self.canvas)
             self.canvas.deleteLater()
             self.canvas = None
-        
+
         if self.current_figure:
             plt.close(self.current_figure)
             self.current_figure = None
 
         try:
             fig = Figure(figsize=(6, 4))
-            
+
             # Determine plot type
             is_3d = z_col != "None"
             has_color = color_col != "None"
 
             if is_3d:
-                ax = fig.add_subplot(111, projection='3d')
+                ax = fig.add_subplot(111, projection="3d")
                 xs = self.df[x_col]
                 ys = self.df[y_col]
                 zs = self.df[z_col]
-                
+
                 c = self.df[color_col] if has_color else None
-                
-                sc = ax.scatter(xs, ys, zs, c=c, cmap='viridis' if has_color else None)
-                
+
+                sc = ax.scatter(xs, ys, zs, c=c, cmap="viridis" if has_color else None)
+
                 ax.set_xlabel(x_col)
                 ax.set_ylabel(y_col)
                 ax.set_zlabel(z_col)
-                
+
                 if has_color:
                     cbar = fig.colorbar(sc, ax=ax)
                     cbar.set_label(color_col)
@@ -204,26 +200,26 @@ class VisualizationsPanel(BaseWidget):
                 ax = fig.add_subplot(111)
                 xs = self.df[x_col]
                 ys = self.df[y_col]
-                
+
                 c = self.df[color_col] if has_color else None
-                
-                sc = ax.scatter(xs, ys, c=c, cmap='viridis' if has_color else None)
-                
+
+                sc = ax.scatter(xs, ys, c=c, cmap="viridis" if has_color else None)
+
                 ax.set_xlabel(x_col)
                 ax.set_ylabel(y_col)
-                
+
                 if has_color:
                     cbar = fig.colorbar(sc, ax=ax)
                     cbar.set_label(color_col)
-                
-                ax.grid(True, linestyle='--', alpha=0.7)
+
+                ax.grid(True, linestyle="--", alpha=0.7)
 
             fig.tight_layout()
 
             self.current_figure = fig
             self.canvas = FigureCanvasQTAgg(fig)
             self.canvas.setFixedSize(650, 450)
-            
+
             self.plot_layout.addWidget(self.canvas, 0, Qt.AlignmentFlag.AlignCenter)
             self.canvas.draw()
 
@@ -241,10 +237,7 @@ class VisualizationsPanel(BaseWidget):
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Plot",
-            self.workspace_path,
-            "PNG Image (*.png);;JPEG Image (*.jpg);;SVG Image (*.svg)"
+            self, "Save Plot", self.workspace_path, "PNG Image (*.png);;JPEG Image (*.jpg);;SVG Image (*.svg)"
         )
 
         if file_path:
