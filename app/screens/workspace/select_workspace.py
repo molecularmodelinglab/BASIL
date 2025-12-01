@@ -43,6 +43,7 @@ class SelectWorkspaceScreen(BaseScreen):
         "The selected folder is not a valid BASIL workspace.\n"
         "Please select a folder containing a workspace configuration file."
     )
+    NOT_A_FOLDER_TEXT = "Folder does not exist"
     ERROR_TEXT = "Error"
     FAILED_TO_CREATE_WORKSPACE_TEXT = "Failed to create workspace:\n{}"
     WORKSPACE_SELECTED_TEXT = "Workspace selected: {}"
@@ -176,7 +177,7 @@ class SelectWorkspaceScreen(BaseScreen):
 
         for workspace in recent_workspaces:
             workspace_card = WorkspaceCard(workspace)
-            workspace_card.workspace_selected.connect(self._workspace_selected)
+            workspace_card.workspace_selected.connect(self._open_existing_workspace)
             self.recent_workspaces_layout.addWidget(workspace_card)
 
     def _on_create_new_workspace(self):
@@ -239,6 +240,14 @@ class SelectWorkspaceScreen(BaseScreen):
     def _open_existing_workspace(self, folder_path):
         """Open an existing workspace."""
         # Validate that it's a valid workspace
+        if not os.path.isdir(folder_path):
+            QMessageBox.warning(
+                self,
+                self.INVALID_WORKSPACE_TEXT,
+                self.NOT_A_FOLDER_TEXT,
+            )
+            return
+
         workspace_file = os.path.join(folder_path, WorkspaceConstants.WORKSPACE_CONFIG_FILENAME)
 
         if not os.path.exists(workspace_file):
