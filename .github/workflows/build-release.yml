@@ -404,6 +404,20 @@ jobs:
           chmod +x AppDir/AppRun
           chmod +x AppDir/usr/bin/BASIL
 
+      - name: Clean up before packaging
+        run: |
+          # Remove Poetry cache
+          rm -rf ~/.cache/pypoetry
+
+          # Remove pip cache
+          rm -rf ~/.cache/pip
+
+          # Remove build artifacts
+          poetry run python -m pip cache purge || true
+
+          # Show disk space
+          df -h
+
       - name: Build AppImage
         run: |
           ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
