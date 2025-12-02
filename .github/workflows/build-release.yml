@@ -349,7 +349,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry config installer.max-workers 1
-          poetry install
+          poetry install --no-cache
 
       - name: Force CPU-only PyTorch
         run: |
