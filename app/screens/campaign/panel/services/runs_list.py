@@ -321,18 +321,15 @@ class RunsListScreen(BaseWidget):
 
     def _handle_export_all_data(self):
         """Export all runs data to a single CSV file."""
-        if not self.runs_data:
-            from app.shared.components.dialogs import InfoDialog
+        from app.shared.components.dialogs import ErrorDialog, InfoDialog
 
+        if not self.runs_data:
             InfoDialog.show_info("Export All Data", "No runs data to export.")
             return
 
         import csv
-        from datetime import datetime
 
         from PySide6.QtWidgets import QFileDialog
-
-        from app.shared.components.dialogs import ErrorDialog, InfoDialog
 
         campaign_name = "campaign"
         timestamp = datetime.now().strftime("%Y%m%d")
@@ -377,8 +374,8 @@ class RunsListScreen(BaseWidget):
             InfoDialog.show_info(
                 "Export All Data",
                 (
-                f"Successfully exported {len(all_experiments)} experiments "
-                f"from {len(self.runs_data)} runs to:\n{file_path}"
+                    f"Successfully exported {len(all_experiments)} experiments "
+                    f"from {len(self.runs_data)} runs to:\n{file_path}"
                 ),
                 parent=self,
             )
