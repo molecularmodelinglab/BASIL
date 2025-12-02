@@ -376,8 +376,10 @@ class RunsListScreen(BaseWidget):
 
             InfoDialog.show_info(
                 "Export All Data",
-                f"Successfully exported {len(all_experiments)} experiments \
-                from {len(self.runs_data)} runs to:\n{file_path}",
+                (
+                f"Successfully exported {len(all_experiments)} experiments "
+                f"from {len(self.runs_data)} runs to:\n{file_path}"
+                ),
                 parent=self,
             )
 
