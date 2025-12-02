@@ -400,8 +400,8 @@ class BayBeIntegrationService:
             if self.baybe_campaign is None:
                 try:
                     self._load_baybe_campaign_state()
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.warning(f"Failed to load BayBe campaign state: {e}")
 
             if self.baybe_campaign is None:
                 self._initialize_baybe_campaign()
