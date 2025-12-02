@@ -20,7 +20,7 @@ from app.models.campaign import Campaign
 from app.screens.campaign.setup.campaign_info_step import CampaignInfoStep
 from app.screens.campaign.setup.data_import_step import DataImportStep
 from app.screens.campaign.setup.parameters_step import ParametersStep
-from app.shared.components.buttons import NavigationButton
+from app.shared.components.buttons import NavigationButton, SecondaryButton
 from app.shared.components.dialogs import ErrorDialog
 from app.shared.constants import WorkspaceConstants
 from app.shared.styles.theme import get_navigation_styles, get_widget_styles
@@ -43,6 +43,7 @@ class CampaignWizard(BaseScreen):
     BACK_BUTTON_TEXT = "← Back"
     NEXT_BUTTON_TEXT = "Next →"
     CREATE_CAMPAIGN_BUTTON_TEXT = "Create Campaign"
+    CLEAR_DATA_BUTTON_TEXT = "Clear Data"
 
     # Error Dialog Constants
     CAMPAIGN_CREATION_FAILED_TITLE = "Campaign Creation Failed"
@@ -128,6 +129,11 @@ class CampaignWizard(BaseScreen):
         nav_layout.addWidget(self.back_button)
         nav_layout.addStretch()
 
+        self.clear_data_button = SecondaryButton(self.CLEAR_DATA_BUTTON_TEXT)
+        self.clear_data_button.clicked.connect(self._clear_import_data)
+        self.clear_data_button.setVisible(False)
+        nav_layout.addWidget(self.clear_data_button)
+
         # Next button
         self.next_button = NavigationButton(self.NEXT_BUTTON_TEXT, "next")
         self.next_button.clicked.connect(self._go_next)
@@ -178,9 +184,29 @@ class CampaignWizard(BaseScreen):
         else:
             self.next_button.setText(self.NEXT_BUTTON_TEXT)
 
+        self._update_clear_button_visibility()
+
         # Load data into current step
         current_widget = self.stacked_widget.currentWidget()
         current_widget.load_data()
+
+    def _update_clear_button_visibility(self):
+        """Update clear data button visibility based on current step and data state."""
+        is_data_import_step = self.current_step == 2
+
+        if is_data_import_step:
+            data_import_step = self.step_widgets[2]
+            has_data = data_import_step.has_data()
+            self.clear_data_button.setVisible(has_data)
+        else:
+            self.clear_data_button.setVisible(False)
+
+    def _clear_import_data(self):
+        """Clear imported data from the data import step."""
+        if self.current_step == 2:
+            data_import_step = self.step_widgets[2]
+            data_import_step.clear_data()
+            self._update_clear_button_visibility()
 
     def _create_campaign(self):
         """Create campaign with collected data."""

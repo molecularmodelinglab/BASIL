@@ -277,3 +277,57 @@ class TestRunsDataManager:
 
         runs = runs_manager.load_runs()
         assert runs[0]["completed_count"] == 2  # Two experiments now have target values
+
+    def test_completed_count_requires_all_targets(self, runs_manager, sample_campaign):
+        """Completed experiments must contain every target value."""
+        extra_target = Target()
+        extra_target.name = "purity"
+        extra_target.mode = "MAX"
+        sample_campaign.targets.append(extra_target)
+
+        experiments = [
+            {"temperature": 25.0, "solvent": "water", "yield": 0.8, "purity": None},
+            {"temperature": 50.0, "solvent": "ethanol", "yield": 0.9, "purity": 0.95},
+        ]
+
+        run_number = runs_manager.add_run(experiments, sample_campaign)
+
+        runs = runs_manager.load_runs()
+        assert runs[0]["completed_count"] == 1  # Only second experiment has all targets
+        assert runs[0]["status"] == "pending"
+
+        updated_experiments = [
+            {"temperature": 25.0, "solvent": "water", "yield": 0.82, "purity": 0.91},
+            {"temperature": 50.0, "solvent": "ethanol", "yield": 0.9, "purity": 0.95},
+        ]
+
+        runs_manager.update_run_experiments(run_number, updated_experiments)
+
+        runs = runs_manager.load_runs()
+        assert runs[0]["completed_count"] == 2
+        assert runs[0]["status"] == "completed"
+
+    def test_get_runs_missing_target_data(self, runs_manager, sample_campaign):
+        """Runs missing target data should be reported until completed."""
+        experiments = [
+            {"temperature": 25.0, "solvent": "water", "yield": None},
+            {"temperature": 50.0, "solvent": "ethanol", "yield": None},
+        ]
+
+        run_number = runs_manager.add_run(experiments, sample_campaign)
+
+        incomplete_runs = runs_manager.get_runs_missing_target_data()
+        assert len(incomplete_runs) == 1
+        assert incomplete_runs[0]["run_number"] == run_number
+
+        updated_experiments = [
+            {"temperature": 25.0, "solvent": "water", "yield": 0.8},
+            {"temperature": 50.0, "solvent": "ethanol", "yield": 0.85},
+        ]
+
+        runs_manager.update_run_experiments(run_number, updated_experiments)
+
+        assert runs_manager.get_runs_missing_target_data() == []
+        latest_run = runs_manager.get_latest_run()
+        assert latest_run
+        assert latest_run["status"] == "completed"

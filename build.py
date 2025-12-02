@@ -65,7 +65,7 @@ def _determine_version(cli_version: str | None) -> str:
         return "0.0.0"
 
 
-def _parse_four_tuple(version: str) -> tuple[int, int, int, int]:
+def _parse_four_tuple(version: str) -> tuple[int, ...]:
     nums, part = [], ""
     for ch in version:
         if ch.isdigit():

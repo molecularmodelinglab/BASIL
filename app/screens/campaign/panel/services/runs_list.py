@@ -10,7 +10,7 @@ from PySide6.QtGui import QFont, QPainter, QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from app.core.base import BaseWidget
-from app.shared.components.buttons import PrimaryButton
+from app.shared.components.buttons import PrimaryButton, SecondaryButton
 from app.shared.components.cards import Card, EmptyStateCard
 
 
@@ -28,6 +28,35 @@ class RunCard(Card):
         self.run_number = run_number
         super().__init__(parent)
         self._setup_card()
+
+    @staticmethod
+    def _extract_target_names(targets: List[Any]) -> List[str]:
+        names: List[str] = []
+        for target in targets or []:
+            if isinstance(target, dict):
+                name = target.get("name")
+            elif hasattr(target, "name"):
+                name = getattr(target, "name")
+            else:
+                name = str(target) if target is not None else None
+
+            if name:
+                names.append(name)
+
+        return names
+
+    @staticmethod
+    def _experiment_complete(experiment: Dict[str, Any], target_names: List[str]) -> bool:
+        if not target_names:
+            return True
+
+        for target_name in target_names:
+            value = experiment.get(target_name)
+            if value is None:
+                return False
+            if isinstance(value, str) and not value.strip():
+                return False
+        return True
 
     def _setup_card(self):
         """Setup the run card UI."""
@@ -49,14 +78,10 @@ class RunCard(Card):
         header_layout.addWidget(run_title)
 
         # Compute completion to infer status
-        experiments_count = len(self.run_data.get("experiments", []))
-        completed_count = sum(
-            1
-            for exp in self.run_data.get("experiments", [])
-            if any(
-                target["name"] in exp and exp[target["name"]] is not None for target in self.run_data.get("targets", [])
-            )
-        )
+        experiments = self.run_data.get("experiments", []) or []
+        experiments_count = len(experiments)
+        target_names = self._extract_target_names(self.run_data.get("targets", []))
+        completed_count = sum(1 for exp in experiments if self._experiment_complete(exp, target_names))
         completion_percentage = (completed_count / experiments_count) * 100 if experiments_count > 0 else 0
 
         # Derive status from completion progress
@@ -84,10 +109,7 @@ class RunCard(Card):
         if completed_count > 0:
             details_text += f" • {completed_count} completed"
 
-        if self.run_data.get("targets"):
-            target_names = [
-                t.get("name", t) if isinstance(t, dict) else str(t) for t in self.run_data.get("targets", [])
-            ]
+        if target_names:
             details_text += f" • Targets: {', '.join(target_names)}"
 
         details_label = QLabel(details_text)
@@ -256,13 +278,13 @@ class RunsListScreen(BaseWidget):
         painter.end()
 
         return pixmap
-    
+
     def _build_subtitle(self) -> str:
         """Return subtitle including run count when available."""
         if self.runs_data:
             return f"{self.SUBTITLE_TEXT} ({len(self.runs_data)} runs)"
         return self.SUBTITLE_TEXT
-    
+
     def _refresh_view(self):
         """Refresh the runs list view."""
         if self.subtitle_label:
@@ -275,13 +297,12 @@ class RunsListScreen(BaseWidget):
             item = self.content_layout.takeAt(0)
             if widget := item.widget():
                 widget.setParent(None)
-                #Could be widget.deleteLater()
+                # Could be widget.deleteLater()
 
         if self.runs_data:
             self.content_layout.addWidget(self._create_runs_list())
         else:
             self.content_layout.addWidget(self._create_empty_state())
-
 
     def update_runs_data(self, runs_data: List[Dict[str, Any]]):
         """Update the runs data and refresh the display."""
@@ -292,4 +313,72 @@ class RunsListScreen(BaseWidget):
         """Return the panel-specific buttons."""
         generate_button = PrimaryButton(self.GENERATE_NEW_RUN_TEXT)
         generate_button.clicked.connect(self.new_run_requested.emit)
-        return [generate_button]
+
+        export_all_button = SecondaryButton("Export All Data")
+        export_all_button.clicked.connect(self._handle_export_all_data)
+
+        return [export_all_button, generate_button]
+
+    def _handle_export_all_data(self):
+        """Export all runs data to a single CSV file."""
+        from app.shared.components.dialogs import ErrorDialog, InfoDialog
+
+        if not self.runs_data:
+            InfoDialog.show_info("Export All Data", "No runs data to export.")
+            return
+
+        import csv
+
+        from PySide6.QtWidgets import QFileDialog
+
+        campaign_name = "campaign"
+        timestamp = datetime.now().strftime("%Y%m%d")
+        default_filename = f"{campaign_name}_all_runs_{timestamp}.csv"
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Export All Runs Data to CSV", default_filename, "CSV files (*.csv);;All files (*)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            all_experiments = []
+            for run in self.runs_data:
+                run_number = run.get("run_number", 0)
+                experiments = run.get("experiments", [])
+
+                for exp in experiments:
+                    exp_copy = exp.copy()
+                    exp_copy["run_number"] = run_number
+                    all_experiments.append(exp_copy)
+
+            if not all_experiments:
+                InfoDialog.show_info("Export All Data", "No experiments found in any runs.")
+                return
+
+            all_columns = set()
+            for exp in all_experiments:
+                all_columns.update(exp.keys())
+
+            sorted_columns = sorted(all_columns)
+            if "run_number" in sorted_columns:
+                sorted_columns.remove("run_number")
+                sorted_columns.insert(0, "run_number")
+
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=sorted_columns)
+                writer.writeheader()
+                writer.writerows(all_experiments)
+
+            InfoDialog.show_info(
+                "Export All Data",
+                (
+                    f"Successfully exported {len(all_experiments)} experiments "
+                    f"from {len(self.runs_data)} runs to:\n{file_path}"
+                ),
+                parent=self,
+            )
+
+        except Exception as e:
+            ErrorDialog.show_error("Export Failed", f"Could not export all runs data. Error: {e}", parent=self)
