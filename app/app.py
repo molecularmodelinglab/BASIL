@@ -39,7 +39,7 @@ def main():
 
                 myappid = "mml.unc.basil.0.0.1"
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-                ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+                # ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
             except Exception:
                 pass
 
