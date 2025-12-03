@@ -38,9 +38,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      #- name: Install UPX
-      #  run: choco install upx
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -360,6 +357,23 @@ jobs:
         run: |
           poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean
 
+      - name: Cleanup after build
+        run: |
+          rm -rf ~/.cache/pypoetry
+
+          rm -rf ~/.cache/pip
+
+          poetry run python -m pip cache purge || true
+
+          sudo apt-get clean
+          sudo apt-get autoclean
+
+          sudo journalctl --vacuum-time=1d || true
+
+          sudo rm -rf /tmp/*
+          sudo rm -rf /var/tmp/*
+
+
       - name: Download AppImage tools
         run: |
           wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
@@ -403,20 +417,6 @@ jobs:
           EOF
           chmod +x AppDir/AppRun
           chmod +x AppDir/usr/bin/BASIL
-
-      - name: Clean up before packaging
-        run: |
-          # Remove Poetry cache
-          rm -rf ~/.cache/pypoetry
-
-          # Remove pip cache
-          rm -rf ~/.cache/pip
-
-          # Remove build artifacts
-          poetry run python -m pip cache purge || true
-
-          # Show disk space
-          df -h
 
       - name: Build AppImage
         run: |
