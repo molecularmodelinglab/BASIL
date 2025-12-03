@@ -45,6 +45,11 @@ def main():
 
         app = QApplication(sys.argv)
 
+        from app.logging_config import setup_application_logging
+        setup_application_logging(app_name=APPLICATION_NAME)
+        logger = logging.getLogger(__name__)
+        logger.info("BASIL Starting")
+
         from app.shared.components.splash_screen import SplashScreen
 
         splash = SplashScreen()
@@ -52,14 +57,15 @@ def main():
         splash.show_status("Starting BASIL...")
 
         splash.show_status("Loading modules...")
-        from PySide6 import QtGui
-
-        from app.logging_config import setup_application_logging
-        from app.main_application import MainApplication
-
-        setup_application_logging(app_name=APPLICATION_NAME)
-        logger = logging.getLogger(__name__)
-        logger.info("BASIL Starting")
+        
+        try:
+            from PySide6 import QtGui
+            from app.main_application import MainApplication
+        except Exception as e:
+            logger.critical("Failed to load modules", exc_info=True)
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "Startup Error", f"Failed to load application modules:\n\n{str(e)}")
+            sys.exit(1)
 
         splash.show_status("Loading resources...")
         icon_path = get_icon_path()
