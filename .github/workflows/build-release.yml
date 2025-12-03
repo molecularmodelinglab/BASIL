@@ -38,8 +38,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install UPX
-        run: choco install upx
+      #- name: Install UPX
+      #  run: choco install upx
 
       - name: Install dependencies
         run: |
