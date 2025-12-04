@@ -2,11 +2,7 @@ import logging
 import sys
 from pathlib import Path
 
-from PySide6 import QtGui
 from PySide6.QtWidgets import QApplication
-
-from app.logging_config import setup_application_logging
-from app.main_application import MainApplication
 
 APPLICATION_NAME = "BASIL"
 
@@ -35,11 +31,6 @@ def get_icon_path() -> str | None:
 
 
 def main():
-    setup_application_logging(app_name=APPLICATION_NAME)
-
-    logger = logging.getLogger(__name__)
-    logger.info("BASIL Starting")
-
     try:
         # Windows-specific for proper taskbar icon
         if sys.platform.startswith("win"):
@@ -48,10 +39,35 @@ def main():
 
                 myappid = "mml.unc.basil.0.0.1"
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
-            except Exception as e:
-                logger.warning(f"Could not set AppUserModelID: {e}")
+                # ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+            except Exception:
+                pass
+
         app = QApplication(sys.argv)
 
+        from app.logging_config import setup_application_logging
+        setup_application_logging(app_name=APPLICATION_NAME)
+        logger = logging.getLogger(__name__)
+        logger.info("BASIL Starting")
+
+        from app.shared.components.splash_screen import SplashScreen
+
+        splash = SplashScreen()
+        splash.show()
+        splash.show_status("Starting BASIL...")
+
+        splash.show_status("Loading modules...")
+        
+        try:
+            from PySide6 import QtGui
+            from app.main_application import MainApplication
+        except Exception as e:
+            logger.critical("Failed to load modules", exc_info=True)
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(None, "Startup Error", f"Failed to load application modules:\n\n{str(e)}")
+            sys.exit(1)
+
+        splash.show_status("Loading resources...")
         icon_path = get_icon_path()
         icon = None
         if icon_path:
@@ -70,15 +86,24 @@ def main():
 
         logger.info("Qt Application created successfully")
 
+        splash.show_status("Initializing application...")
         window = MainApplication()
 
         if icon and not icon.isNull():
             window.setWindowIcon(icon)
 
+        splash.show_status("Loading workspace...")
         window.show()
         logger.info("Main application window initialized and shown")
+
+        splash.finish(window)
         sys.exit(app.exec())
 
-    except Exception:
-        logger.critical("Critical startup error", exc_info=True)
+    except Exception as e:
+        # Logger might not be initialized yet
+        try:
+            logger = logging.getLogger(__name__)
+            logger.critical("Critical startup error", exc_info=True)
+        except Exception:
+            print(f"Critical startup error: {e}", file=sys.stderr)
         sys.exit(1)

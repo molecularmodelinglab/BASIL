@@ -2,7 +2,7 @@
 BayBe integration service for experiment generation and optimization.
 """
 
-import json
+import contextlib
 import logging
 import random
 from datetime import datetime
@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from baybe import Campaign as BayBeCampaign
+from baybe.insights.shap import SHAPInsight
 from baybe.recommenders import (
     BotorchRecommender,
     RandomRecommender,
@@ -92,7 +93,12 @@ class BayBeIntegrationService:
             if self.baybe_campaign is None:
                 raise RuntimeError("BayBe campaign was not initialized")
 
-            recommendations = self.baybe_campaign.recommend(batch_size=num_experiments)
+            log_handler = next((h for h in self.logger.handlers if isinstance(h, logging.FileHandler)), None)
+            if log_handler and hasattr(log_handler, "stream"):
+                with contextlib.redirect_stdout(log_handler.stream), contextlib.redirect_stderr(log_handler.stream):
+                    recommendations = self.baybe_campaign.recommend(batch_size=num_experiments)
+            else:
+                recommendations = self.baybe_campaign.recommend(batch_size=num_experiments)
 
             experiments = recommendations.to_dict("records")
 
@@ -116,24 +122,27 @@ class BayBeIntegrationService:
             try:
                 self.logger.info("Saving BayBE campaign state")
                 with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
-                    f.write(self.baybe_campaign.to_json())
+                    self.baybe_campaign.to_json(f)
             except Exception as e:
                 self.logger.error(f"Error saving BayBE campaign state: {str(e)}")
 
     def _load_baybe_campaign_state(self) -> None:
         """Load the saved state of the BayBE campaign."""
         try:
+            self.logger.info("Loading BayBE campaign state")
             with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
-                campaign_data = f.read()
-                self.baybe_campaign = BayBeCampaign.from_json(campaign_data)
+                self.baybe_campaign = BayBeCampaign.from_json(f)
         except FileNotFoundError:
             self.logger.warning("No saved BayBE campaign state found")
         except Exception as e:
             self.logger.error(f"Error loading BayBE campaign state: {str(e)}")
 
-    def _load_existing_experimental_data(self) -> Optional[pd.DataFrame]:
+    def _load_existing_experimental_data(self, all_data: bool = False) -> Optional[pd.DataFrame]:
         """
         Load existing experimental data from campaign folder.
+
+        Args:
+            all_data: If True, loads all CSV files. If False, loads only the latest.
 
         Returns:
             DataFrame with existing experimental data, or None if not found
@@ -147,11 +156,26 @@ class BayBeIntegrationService:
             if not csv_files:
                 return None
 
-            # Use the most recent CSV file in runs folder
-            latest_file = max(csv_files, key=lambda f: f.stat().st_mtime)
-            self.logger.info(f"Loading data from: {latest_file}")
+            if all_data:
+                self.logger.info(f"Found {len(csv_files)} data files in {runs_dir}")
+                dfs = []
+                for csv_file in csv_files:
+                    try:
+                        df = pd.read_csv(csv_file)
+                        dfs.append(df)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to read {csv_file}: {e}")
 
-            df = pd.read_csv(latest_file)
+                if not dfs:
+                    return None
+
+                df = pd.concat(dfs, ignore_index=True)
+                self.logger.info(f"Loaded total {len(df)} rows of experimental data")
+            else:
+                # Use the most recent CSV file in runs folder
+                latest_file = max(csv_files, key=lambda f: f.stat().st_mtime)
+                self.logger.info(f"Loading data from: {latest_file}")
+                df = pd.read_csv(latest_file)
 
             target_names = ObjectiveConverter.get_target_names(self.campaign.targets)
             missing_targets = [name for name in target_names if name not in df.columns]
@@ -171,7 +195,6 @@ class BayBeIntegrationService:
         """Initialize a new BayBE campaign."""
         self.logger.info("Initializing new BayBE campaign")
 
-        # Validate campaign configuration
         validation_errors = self._validate_campaign()
         if validation_errors:
             raise ValueError(f"Campaign validation failed: {'; '.join(validation_errors)}")
@@ -189,7 +212,6 @@ class BayBeIntegrationService:
             for target_name, weight in weights.items():
                 self.logger.info(f"  - {target_name}: {weight:.3f} weight ({weight * 100:.1f}%)")
 
-        # Log multi-objective note if applicable
         multi_obj_note = ObjectiveConverter.create_multi_objective_note(self.campaign.targets)
         if multi_obj_note:
             self.logger.info(multi_obj_note)
@@ -367,6 +389,53 @@ class BayBeIntegrationService:
             ],
         }
 
+    def get_shap_insight(self):
+        """
+        Generate a SHAP insight object.
+
+        Returns:
+            baybe.insights.shap.SHAPInsight: The generated insight object
+        """
+        try:
+            if self.baybe_campaign is None:
+                try:
+                    self._load_baybe_campaign_state()
+                except Exception as e:
+                    self.logger.warning(f"Failed to load BayBe campaign state: {e}")
+
+            if self.baybe_campaign is None:
+                self._initialize_baybe_campaign()
+
+            latest_data = self._load_existing_experimental_data()
+            if latest_data is not None and not latest_data.empty:
+                try:
+                    self.baybe_campaign.add_measurements(
+                        latest_data, numerical_measurements_must_be_within_tolerance=False
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Could not add measurements for SHAP explanation: {e}")
+
+            if len(self.baybe_campaign.measurements) < 2:
+                raise ValueError("At least 2 completed runs are required to generate explanations.")
+
+            return SHAPInsight.from_campaign(self.baybe_campaign)
+
+        except Exception as e:
+            self.logger.error(f"Error generating SHAP insight: {str(e)}")
+            raise e
+
+    def get_experimental_data(self, all_data: bool = True) -> Optional[pd.DataFrame]:
+        """
+        Public method to load existing experimental data.
+
+        Args:
+            all_data: If True, loads all CSV files. If False, loads only the latest.
+
+        Returns:
+            DataFrame with existing experimental data, or None if not found
+        """
+        return self._load_existing_experimental_data(all_data=all_data)
+
 
 class BayBeService(BayBeIntegrationService):
     """
@@ -391,16 +460,12 @@ class MockBayBeService(BayBeIntegrationService):
 
         self.logger.info("Using Mock BayBe Service for development")
 
-        # Simulate processing time (faster for first run, slower for subsequent)
         if not has_previous_data:
-            # First run is quick
             time.sleep(0.5)
         else:
-            # Subsequent runs take longer (optimization)
             time.sleep(1 + (num_experiments * 0.05))
 
         try:
-            # Try to use real BayBE implementation
             return super().generate_experiments(num_experiments, has_previous_data)
         except Exception as e:
             self.logger.warning(f"BayBE failed, using random generation: {str(e)}")

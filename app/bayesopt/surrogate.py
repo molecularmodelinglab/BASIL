@@ -5,7 +5,7 @@ This module provides information and utilities for working with
 surrogate models in Bayesian optimization.
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
 from baybe.surrogates import (
     GaussianProcessSurrogate,

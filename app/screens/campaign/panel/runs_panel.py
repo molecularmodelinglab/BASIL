@@ -196,6 +196,27 @@ class RunsPanel(BaseWidget):
 
     def _handle_generate_new_run(self):
         """Handle request to generate new run."""
+        latest_run = self.runs_manager.get_latest_run()
+        if latest_run and not self.runs_manager.run_has_all_target_data(latest_run):
+            from app.shared.components.dialogs import InfoDialog
+
+            run_number = latest_run.get("run_number", self.runs_manager.get_run_count())
+            experiment_total = latest_run.get("experiment_count") or len(latest_run.get("experiments", []))
+            completed = latest_run.get("completed_count", 0)
+            remaining = max((experiment_total or 0) - completed, 0)
+            if remaining and experiment_total:
+                plural = "experiments" if remaining != 1 else "experiment"
+                status_line = f"{remaining} {plural} still need target data."
+            else:
+                status_line = "Target data is still missing."
+
+            InfoDialog.show_info(
+                "Target Data Required",
+                (f"Check Run {run_number}.\n{status_line}\nPlease finish entering results before generating new runs."),
+                parent=self,
+            )
+            return
+
         # Show dialog to get experiment count
         accepted, count = GenerateExperimentsDialog.get_experiment_count_from_user(self)
 

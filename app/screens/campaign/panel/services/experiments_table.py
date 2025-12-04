@@ -7,7 +7,7 @@ import math
 import sys
 from typing import Any, Dict, List
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QDoubleValidator, QFont
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -30,13 +30,12 @@ from app.shared.components.cards import Card
 from app.shared.components.dialogs import ConfirmationDialog, ErrorDialog, InfoDialog
 
 
-class LargeInputDelegate(QStyledItemDelegate):
+class TargetInputDelegate(QStyledItemDelegate):
     """Custom delegate for larger input fields in table cells."""
 
     def createEditor(self, parent, option, index):
         editor = QLineEdit(parent)
         editor.setPlaceholderText("Enter value...")
-        # Make the input field larger
         editor.setMinimumHeight(35)
         validator = QDoubleValidator(-sys.float_info.max, sys.float_info.max, 15, editor)
         validator.setNotation(QDoubleValidator.Notation.StandardNotation)
@@ -60,6 +59,14 @@ class LargeInputDelegate(QStyledItemDelegate):
         if value is not None:
             editor.setText(str(value))
 
+            def safe_deselect():
+                try:
+                    editor.deselect()
+                except RuntimeError:
+                    pass
+
+            QTimer.singleShot(0, safe_deselect)
+
     def setModelData(self, editor, model, index):
         text = editor.text().strip()
         if text == "":
@@ -77,6 +84,45 @@ class LargeInputDelegate(QStyledItemDelegate):
                 "Please enter a number (integer or float).",
                 parent=editor.window(),
             )
+
+
+class ParameterInputDelegate(QStyledItemDelegate):
+    """Custom delegate for parameter input fields in table cells (allows non-numeric)."""
+
+    def createEditor(self, parent, option, index):
+        editor = QLineEdit(parent)
+        editor.setPlaceholderText("Enter value...")
+        editor.setMinimumHeight(35)
+        editor.setStyleSheet("""
+            QLineEdit {
+                background-color: white;
+                padding: 8px;
+                font-size: 13px;
+                border: 2px solid #ddd;
+                border-radius: 4px;
+            }
+            QLineEdit:focus {
+                border-color: #007acc;
+            }
+        """)
+        return editor
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
+        if value is not None:
+            editor.setText(str(value))
+
+            def safe_deselect():
+                try:
+                    editor.deselect()
+                except RuntimeError:
+                    pass
+
+            QTimer.singleShot(0, safe_deselect)
+
+    def setModelData(self, editor, model, index):
+        text = editor.text().strip()
+        model.setData(index, text, Qt.ItemDataRole.EditRole)
 
 
 class ExperimentsTableScreen(BaseWidget):
@@ -138,9 +184,10 @@ class ExperimentsTableScreen(BaseWidget):
     def _create_table_card(self) -> QWidget:
         """Create the main table display card."""
         card = Card()
+        card.setMinimumHeight(400)
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
 
         self.table = QTableWidget()
         self._setup_table()
@@ -187,17 +234,21 @@ class ExperimentsTableScreen(BaseWidget):
 
         campaign_target_names = {target.name for target in self.campaign.targets}
         param_columns: List[str] = []
-        target_columns: List[str] = []
 
+        for param in self.campaign.parameters:
+            if param.name in all_experiment_keys:
+                param_columns.append(param.name)
+
+        existing_param_set = set(param_columns)
+        extra_params = []
         for key in all_experiment_keys:
-            if key in campaign_target_names:
-                target_columns.append(key)
-            else:
-                param_columns.append(key)
+            if key not in campaign_target_names and key not in existing_param_set:
+                extra_params.append(key)
+        param_columns.extend(sorted(extra_params))
 
+        target_columns: List[str] = []
         for target in self.campaign.targets:
-            if target.name not in target_columns:
-                target_columns.append(target.name)
+            target_columns.append(target.name)
 
         self._param_columns = param_columns
         self._target_columns = target_columns
@@ -208,32 +259,39 @@ class ExperimentsTableScreen(BaseWidget):
         self.table.setColumnCount(len(all_columns))
         self.table.setHorizontalHeaderLabels(all_columns)
 
+        # using self.delegate prevents garbage collection
+        self.param_delegate = ParameterInputDelegate()
+        for col in range(len(self._param_columns)):
+            self.table.setItemDelegateForColumn(col, self.param_delegate)
+
+        self.target_delegate = TargetInputDelegate()
+        for target_idx, target in enumerate(self.campaign.targets):
+            col = len(self._param_columns) + target_idx
+            self.table.setItemDelegateForColumn(col, self.target_delegate)
         for row, experiment in enumerate(self.experiments):
+            # parms
             for col, param_name in enumerate(self._param_columns):
                 value = experiment.get(param_name, "")
                 if isinstance(value, float):
                     value = round(value, 3)
                 item = QTableWidgetItem(str(value))
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)  # Read-only
-                item.setBackground(Qt.GlobalColor.lightGray)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(row, col, item)
+                self.table.openPersistentEditor(item)
 
-        large_input_delegate = LargeInputDelegate()
-        for target_idx, target in enumerate(self.campaign.targets):
-            col = len(self._param_columns) + target_idx
-            self.table.setItemDelegateForColumn(col, large_input_delegate)
-
-        for row, experiment in enumerate(self.experiments):
+            # targets
             for target_idx, target in enumerate(self.campaign.targets):
                 col = len(self._param_columns) + target_idx
                 existing_value = experiment.get(target.name, "")
                 item = QTableWidgetItem(str(existing_value) if existing_value is not None else "")
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
                 self.table.setItem(row, col, item)
+                self.table.openPersistentEditor(item)
 
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.table.clearSelection()
 
         self.table.verticalHeader().setVisible(True)
         self.table.verticalHeader().setDefaultSectionSize(50)
@@ -248,6 +306,19 @@ class ExperimentsTableScreen(BaseWidget):
 
         for row in range(self.table.rowCount()):
             experiment = self.original_experiments[row].copy()
+
+            for col, param_name in enumerate(self._param_columns):
+                item = self.table.item(row, col)
+                if item:
+                    text = item.text().strip()
+                    # convert to number if possible, else keep as string
+                    try:
+                        val = float(text)
+                        if val.is_integer():
+                            val = int(val)
+                        experiment[param_name] = val
+                    except ValueError:
+                        experiment[param_name] = text
 
             for target_idx, target in enumerate(self.campaign.targets):
                 col = len(self._param_columns) + target_idx
@@ -274,7 +345,8 @@ class ExperimentsTableScreen(BaseWidget):
                     )
                     self.table.setCurrentCell(row, col)
                     if item:
-                        self.table.editItem(item)
+                        # prevent double click to edit cells
+                        pass
                     return
 
             updated_experiments.append(experiment)
@@ -293,8 +365,6 @@ class ExperimentsTableScreen(BaseWidget):
             self.instructions_label.setStyleSheet("color: #28a745; font-size: 12px; padding: 10px; font-weight: bold;")
 
             import weakref
-
-            from PySide6.QtCore import QTimer
 
             weak_self = weakref.ref(self)
 

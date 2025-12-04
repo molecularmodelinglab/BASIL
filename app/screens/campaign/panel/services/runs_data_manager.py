@@ -28,6 +28,74 @@ class RunsDataManager:
 
         self.runs_dir.mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def _extract_target_name(target: Any) -> Optional[str]:
+        """Return the canonical target name from different structures."""
+        if target is None:
+            return None
+        if isinstance(target, dict):
+            return target.get("name")
+        if hasattr(target, "name"):
+            return getattr(target, "name")
+        return str(target)
+
+    @staticmethod
+    def _experiment_has_all_target_values(experiment: Dict[str, Any], target_names: List[str]) -> bool:
+        """Return True when every target for the experiment has a non-empty value."""
+        if not target_names:
+            return True
+
+        for target_name in target_names:
+            value = experiment.get(target_name)
+            if value is None:
+                return False
+            if isinstance(value, str) and not value.strip():
+                return False
+        return True
+
+    @classmethod
+    def _calculate_completed_count(cls, experiments: List[Dict[str, Any]], target_names: List[str]) -> int:
+        """Count experiments that have complete target data."""
+        if not experiments:
+            return 0
+        return sum(1 for exp in experiments if cls._experiment_has_all_target_values(exp, target_names))
+
+    def _get_target_names_from_run(self, run: Dict[str, Any]) -> List[str]:
+        """Extract target names from a persisted run record."""
+        target_names: List[str] = []
+        for target in run.get("targets", []) or []:
+            name = self._extract_target_name(target)
+            if name:
+                target_names.append(name)
+        return target_names
+
+    def _run_has_all_target_data(self, run: Dict[str, Any]) -> bool:
+        """Return True when every experiment in the run has complete target data."""
+        experiments = run.get("experiments", []) or []
+        if not experiments:
+            return False
+
+        target_names = self._get_target_names_from_run(run)
+        if not target_names:
+            return True
+
+        return all(self._experiment_has_all_target_values(exp, target_names) for exp in experiments)
+
+    def get_latest_run(self) -> Optional[Dict[str, Any]]:
+        """Return the most recently saved run, if any."""
+        runs = self.load_runs()
+        return runs[-1] if runs else None
+
+    def run_has_all_target_data(self, run: Dict[str, Any]) -> bool:
+        """Public helper to determine if a run is complete."""
+        if not run:
+            return False
+        return self._run_has_all_target_data(run)
+
+    def get_runs_missing_target_data(self) -> List[Dict[str, Any]]:
+        """Return all runs that still require target data."""
+        return [run for run in self.load_runs() if not self._run_has_all_target_data(run)]
+
     def load_runs(self) -> List[Dict[str, Any]]:
         """Load all runs for the campaign."""
         if not self.runs_file.exists():
@@ -74,12 +142,9 @@ class RunsDataManager:
         # Create new run
         run_number = len(runs_data) + 1
 
-        # Calculate completed count
+        # Calculate completion stats (all targets must be filled)
         target_names = [target.name for target in campaign.targets]
-        completed_count = sum(
-            1 for exp in experiments if any(exp.get(target_name) is not None for target_name in target_names)
-        )
-
+        completed_count = self._calculate_completed_count(experiments, target_names)
         status = "completed" if completed_count == len(experiments) and len(experiments) > 0 else "pending"
 
         new_run = {
@@ -115,11 +180,12 @@ class RunsDataManager:
                 run["experiments"] = experiments
                 run["updated_at"] = datetime.now()
 
-                target_names = [t["name"] for t in run.get("targets", [])]
-                completed_count = sum(
-                    1 for exp in experiments if any(exp.get(target_name) is not None for target_name in target_names)
-                )
+                target_names = self._get_target_names_from_run(run)
+                completed_count = self._calculate_completed_count(experiments, target_names)
                 run["completed_count"] = completed_count
+                run["status"] = (
+                    "completed" if completed_count == len(experiments) and len(experiments) > 0 else "pending"
+                )
 
                 try:
                     self._write_run_csv(run)

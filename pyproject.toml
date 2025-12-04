@@ -22,9 +22,13 @@ classifiers = [
 requires-python = ">=3.11,<3.14"
 dependencies = [
 "PySide6>=6.5,<7.0",
-"baybe (>=0.14.0,<0.15.0)",
-"torch==2.2.2; platform_system == 'Darwin' and platform_machine == 'x86_64'",
-"numpy==1.26.*; platform_system == 'Darwin' and platform_machine == 'x86_64'",
+"baybe[chem,insights,polars] (>=0.14.1,<0.15.0)",
+"torch==2.2.2; platform_system == 'Darwin'" ,
+"numpy==1.26.*; platform_system == 'Darwin'",
+"torch==2.8.0; platform_system != 'Darwin'",
+"numpy==2.3.3; platform_system != 'Darwin'",
+"scipy==1.11.*; platform_system == 'Darwin' and platform_machine == 'x86_64'",
+"scipy==1.16.2; platform_system != 'Darwin' or platform_machine != 'x86_64'",
 ]
 
 [tool.poetry.group.dev.dependencies]

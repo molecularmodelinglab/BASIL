@@ -19,7 +19,6 @@ class ParametersPanel(BaseWidget):
 
     data_exported = Signal()
 
-    PANEL_TITLE = "Parameters"
     NO_PARAMETERS_MESSAGE = "No parameters defined for this campaign."
 
     EXPORT_DATA_BUTTON_TEXT = "Export Data"
@@ -45,11 +44,6 @@ class ParametersPanel(BaseWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(*self.MAIN_MARGINS)
         main_layout.setSpacing(self.MAIN_LAYOUT_SPACING)
-
-        title_label = QLabel(self.PANEL_TITLE)
-        title_label.setObjectName("PanelTitle")
-        title_label.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 10px;")
-        main_layout.addWidget(title_label)
 
         self.info_label = QLabel()
         self.info_label.setObjectName("ParametersInfo")
