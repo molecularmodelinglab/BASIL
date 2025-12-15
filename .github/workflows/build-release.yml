@@ -87,6 +87,7 @@ jobs:
         with:
           name: windows-${{ matrix.architecture }}
           path: dist/BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}.exe
+          retention-days: 1
 
   build-macos-arm64:
     needs: prepare-version
@@ -148,6 +149,7 @@ jobs:
         with:
           name: macos-arm64
           path: dist/*-apple-silicon.dmg
+          retention-days: 1
 
   build-macos-arm64-macos12:
     needs: prepare-version
@@ -254,6 +256,7 @@ jobs:
         with:
           name: macos-arm64-macos12
           path: dist/*-apple-silicon-macos12.dmg
+          retention-days: 1
 
   build-macos-intel:
     needs: prepare-version
@@ -315,6 +318,7 @@ jobs:
         with:
           name: macos-intel
           path: dist/*-intel-mac.dmg
+          retention-days: 1
 
   build-linux:
     needs: prepare-version
@@ -436,6 +440,7 @@ jobs:
         with:
           name: linux-x86_64
           path: BASIL-*.AppImage
+          retention-days: 1
 
   create-release:
     needs: [build-windows, build-macos-arm64, build-macos-intel, build-linux, build-macos-arm64-macos12]
