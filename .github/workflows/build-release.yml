@@ -82,11 +82,13 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
 
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-${{ matrix.architecture }}
-          path: dist/BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}.exe
+      - name: Upload Windows installer to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}.exe" --clobber
+
 
   build-macos-arm64:
     needs: prepare-version
@@ -143,11 +145,13 @@ jobs:
             "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg" \
             "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon.dmg"
 
-      - name: Upload ARM64 DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm64
-          path: dist/*-apple-silicon.dmg
+      - name: Upload ARM64 DMG to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" dist/*-apple-silicon.dmg --clobber
+
 
   build-macos-arm64-macos12:
     needs: prepare-version
@@ -249,11 +253,13 @@ jobs:
               -ov -format UDZO \
               "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12.dmg"
 
-      - name: Upload macOS 12 DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm64-macos12
-          path: dist/*-apple-silicon-macos12.dmg
+      - name: Upload macOS 12 DMG to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" dist/*-apple-silicon-macos12.dmg --clobber
+
 
   build-macos-intel:
     needs: prepare-version
@@ -310,16 +316,26 @@ jobs:
             "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg" \
             "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg"
 
-      - name: Upload Intel DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-intel
-          path: dist/*-intel-mac.dmg
+      - name: Upload Intel DMG to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" dist/*-intel-mac.dmg --clobber
+
 
   build-linux:
     needs: prepare-version
     runs-on: ubuntu-22.04
     steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -423,35 +439,9 @@ jobs:
           ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
           chmod +x BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
 
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-x86_64
-          path: BASIL-*.AppImage
-
-  create-release:
-    needs: [build-windows, build-macos-arm64, build-macos-intel, build-linux, build-macos-arm64-macos12]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release'
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            windows-x86/*.exe
-            windows-x64/*.exe
-            macos-arm64/*.dmg
-            macos-arm64-macos12/*.dmg
-            macos-intel/*.dmg
-            linux-x86_64/*.AppImage
-          body: |
-            ## macOS Users
-            - **Apple Silicon (M1/M2/M3/M4)**:
-              - For macOS 13+ (Ventura and newer): Download `*-apple-silicon.dmg`
-              - For macOS 12 (Monterey): Download `*-apple-silicon-macos12.dmg`
-            - **Intel Mac**: Download `*-intel-mac.dmg`
+      - name: Upload Linux AppImage to GitHub Release
+        if: github.event_name == 'release'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" BASIL-*.AppImage --clobber
