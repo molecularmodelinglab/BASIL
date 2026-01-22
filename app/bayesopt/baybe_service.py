@@ -202,17 +202,27 @@ class BayBeIntegrationService:
         search_space = ParameterConverter.create_search_space(self.campaign.parameters)
         self.logger.info(f"Created search space with {len(search_space.parameters)} parameters")
 
-        objective = ObjectiveConverter.create_objective(self.campaign.targets)
+        objective = ObjectiveConverter.create_objective(
+            self.campaign.targets,
+            objective_scope=self.campaign.objective_scope,
+            multi_objective_strategy=self.campaign.multi_objective_strategy,
+        )
 
         if len(self.campaign.targets) == 1:
             self.logger.info(f"Created single-target objective: {self.campaign.targets[0].name}")
         else:
-            self.logger.info(f"Created desirability objective with {len(self.campaign.targets)} targets")
-            weights = ObjectiveConverter.calculate_desirability_weights(self.campaign.targets)
-            for target_name, weight in weights.items():
-                self.logger.info(f"  - {target_name}: {weight:.3f} weight ({weight * 100:.1f}%)")
+            if self.campaign.multi_objective_strategy == "pareto":
+                self.logger.info(f"Created Pareto objective with {len(self.campaign.targets)} targets")
+            else:
+                self.logger.info(f"Created desirability objective with {len(self.campaign.targets)} targets")
+                weights = ObjectiveConverter.calculate_desirability_weights(self.campaign.targets)
+                for target_name, weight in weights.items():
+                    self.logger.info(f"  - {target_name}: {weight:.3f} weight ({weight * 100:.1f}%)")
 
-        multi_obj_note = ObjectiveConverter.create_multi_objective_note(self.campaign.targets)
+        multi_obj_note = ObjectiveConverter.create_multi_objective_note(
+            self.campaign.targets,
+            multi_objective_strategy=self.campaign.multi_objective_strategy,
+        )
         if multi_obj_note:
             self.logger.info(multi_obj_note)
 
@@ -266,7 +276,11 @@ class BayBeIntegrationService:
             if valid_params == 0:
                 errors.append("No valid parameters for optimization")
 
-        target_errors = ObjectiveConverter.validate_targets(self.campaign.targets)
+        target_errors = ObjectiveConverter.validate_targets(
+            self.campaign.targets,
+            objective_scope=self.campaign.objective_scope,
+            multi_objective_strategy=self.campaign.multi_objective_strategy,
+        )
         errors.extend(target_errors)
 
         return errors
@@ -369,6 +383,9 @@ class BayBeIntegrationService:
             Dictionary with desirability information, or None if single-objective
         """
         if len(self.campaign.targets) <= 1:
+            return None
+
+        if self.campaign.multi_objective_strategy != "desirability":
             return None
 
         weights = ObjectiveConverter.calculate_desirability_weights(self.campaign.targets)
