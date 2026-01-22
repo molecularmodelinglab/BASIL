@@ -16,6 +16,62 @@ class TargetTransformation(Enum):
     NONE = "None"
 
 
+class ObjectiveScope(str, Enum):
+    """
+    Objective scope selection for optimization.
+
+    Attributes:
+       display_name (str): The human-readable name for the objective scope
+    """
+
+    if TYPE_CHECKING:
+        display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.display_name = display_name
+        return member
+
+    @classmethod
+    def get_display_name(cls, value: str) -> str:
+        for member in cls:
+            if member.value == value:
+                return member.display_name
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+    SINGLE = ("single", "Single Objective")
+    MULTI = ("multi", "Multi Objective")
+
+
+class MultiObjectiveStrategy(str, Enum):
+    """
+    Strategy for multi-objective optimization.
+
+    Attributes:
+       display_name (str): The human-readable name for the strategy
+    """
+
+    if TYPE_CHECKING:
+        display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.display_name = display_name
+        return member
+
+    @classmethod
+    def get_display_name(cls, value: str) -> str:
+        for member in cls:
+            if member.value == value:
+                return member.display_name
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+    DESIRABILITY = ("desirability", "Desirability (Weighted)")
+    PARETO = ("pareto", "Pareto (Frontier)")
+
+
 class BOSurrogateModel(str, Enum):
     """
     Surrogate models for Bayesian Optimization using BayBE.
