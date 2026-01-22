@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from app.models.enums import BOAcquisitionFunction, TargetTransformation
+from app.models.enums import BOAcquisitionFunction, MultiObjectiveStrategy, ObjectiveScope, TargetTransformation
 from app.models.parameters import ParameterSerializer
 from app.models.parameters.base import BaseParameter
 
@@ -36,10 +36,19 @@ class Campaign:
     initial_dataset: List[Dict[str, Any]] = field(default_factory=list)
     acquisition_function: str = BOAcquisitionFunction.QLOGEI.value
     surrogate_model: str = "GaussianProcess"
+    objective_scope: str = ObjectiveScope.SINGLE.value
+    multi_objective_strategy: str = MultiObjectiveStrategy.DESIRABILITY.value
     workspace_path: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     accessed_at: datetime = field(default_factory=datetime.now)
+
+    def __post_init__(self) -> None:
+        """Normalize objective settings after initialization."""
+        if len(self.targets) > 1 and self.objective_scope == ObjectiveScope.SINGLE.value:
+            self.objective_scope = ObjectiveScope.MULTI.value
+        if self.objective_scope == ObjectiveScope.MULTI.value and not self.multi_objective_strategy:
+            self.multi_objective_strategy = MultiObjectiveStrategy.DESIRABILITY.value
 
     def reset(self):
         """Reset all campaign data to its initial state."""
@@ -51,6 +60,8 @@ class Campaign:
         self.initial_dataset.clear()
         self.acquisition_function = BOAcquisitionFunction.QLOGEI.value
         self.surrogate_model = "GaussianProcess"
+        self.objective_scope = ObjectiveScope.SINGLE.value
+        self.multi_objective_strategy = MultiObjectiveStrategy.DESIRABILITY.value
         self.workspace_path = None
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
@@ -87,6 +98,14 @@ class Campaign:
         # We'll need to delete it later.
         accessed_at = data.get("accessed_at", updated_at)
 
+        objective_scope = data.get("objective_scope")
+        multi_objective_strategy = data.get("multi_objective_strategy")
+
+        if not objective_scope:
+            objective_scope = ObjectiveScope.MULTI.value if len(targets) > 1 else ObjectiveScope.SINGLE.value
+        if not multi_objective_strategy:
+            multi_objective_strategy = MultiObjectiveStrategy.DESIRABILITY.value
+
         if isinstance(created_at, str):
             created_at = datetime.fromisoformat(created_at)
         if isinstance(updated_at, str):
@@ -103,6 +122,8 @@ class Campaign:
             initial_dataset=data.get("initial_dataset", []),
             acquisition_function=data.get("acquisition_function", BOAcquisitionFunction.QLOGEI.value),
             surrogate_model=data.get("surrogate_model", "GaussianProcess"),
+            objective_scope=objective_scope,
+            multi_objective_strategy=multi_objective_strategy,
             workspace_path=data.get("workspace_path"),
             created_at=created_at,
             updated_at=updated_at,
@@ -131,6 +152,8 @@ class Campaign:
             "initial_dataset": self.initial_dataset,
             "acquisition_function": self.acquisition_function,
             "surrogate_model": self.surrogate_model,
+            "objective_scope": self.objective_scope,
+            "multi_objective_strategy": self.multi_objective_strategy,
             "workspace_path": self.workspace_path,
             "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "updated_at": self.updated_at.isoformat() if isinstance(self.updated_at, datetime) else self.updated_at,
