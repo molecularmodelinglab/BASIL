@@ -211,11 +211,9 @@ class ObjectiveConverter:
         errors = []
         target_id = f"Target {index + 1} ({target.name})" if target.name else f"Target {index + 1}"
 
-        # Check target name
         if not target.name or not target.name.strip():
             errors.append(f"{target_id}: Target name cannot be empty")
 
-        # Check mode
         valid_modes = ["MAX", "MIN", "MATCH"]
         if target.mode.upper() not in valid_modes:
             errors.append(f"{target_id}: Invalid mode '{target.mode}'. Must be one of: {', '.join(valid_modes)}")
