@@ -276,15 +276,15 @@ class ObjectiveConverter:
             return note
 
         total_weight = sum(t.weight if t.weight is not None else 1.0 for t in targets)
-        target_info = []
+        target_information = []
 
         for target in targets:
             weight = target.weight if target.weight is not None else 1.0
             weight_pct = (weight / total_weight) * 100
-            target_info.append(f"'{target.name}' ({weight_pct:.1f}%)")
+            target_information.append(f"'{target.name}' ({weight_pct:.1f}%)")
 
         note = "Multi-objective optimization using desirability function. "
-        note += f"Targets and weights: {', '.join(target_info)}. "
+        note += f"Targets and weights: {', '.join(target_information)}. "
         note += "All targets are simultaneously optimized based on their relative weights."
 
         return note
