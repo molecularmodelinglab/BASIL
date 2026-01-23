@@ -303,11 +303,25 @@ class CampaignInfoStep(BaseStep):
         title = MainHeader(self.TITLE)
         main_layout.addWidget(title)
 
-        # Form
-        self._create_form(main_layout)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setFrameShape(QScrollArea.NoFrame)
+        scroll_area.setObjectName("CampaignInfoScrollArea")
 
-        # Add stretch
-        main_layout.addStretch()
+        scroll_container = QWidget()
+        scroll_container.setObjectName("CampaignInfoScrollContainer")
+        scroll_layout = QVBoxLayout(scroll_container)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(self.MAIN_SPACING)
+
+        # Form
+        self._create_form(scroll_layout)
+
+        scroll_layout.addStretch()
+        scroll_area.setWidget(scroll_container)
+        main_layout.addWidget(scroll_area)
 
     def _create_form(self, parent_layout):
         """Create form with all input fields."""
@@ -402,13 +416,6 @@ class CampaignInfoStep(BaseStep):
         self.targets_container = QWidget()
         self.targets_layout = QVBoxLayout(self.targets_container)
         self.targets_container.setObjectName("TargetsContainer")
-        self.targets_container.setStyleSheet("""
-            QWidget#TargetsContainer {
-                background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 0px;
-            }
-        """)
         # self.targets_layout = QVBoxLayout(self.targets_container)
         self.targets_layout.setContentsMargins(10, 10, 10, 10)
         self.targets_layout.setSpacing(5)
