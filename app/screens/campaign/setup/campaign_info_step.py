@@ -255,6 +255,13 @@ class CampaignInfoStep(BaseStep):
     ADD_TARGET_BUTTON_TOOLTIP = "Add a new target to the campaign"
     SURROGATE_MODEL_LABEL = "Surrogate Model:"
     ACQUISITION_FUNCTION_LABEL = "Acquisition Function:"
+    PARETO_ACQUISITION_FUNCTIONS = {
+        BOAcquisitionFunction.QNEHVI.value,
+        BOAcquisitionFunction.QLOGNEHVI.value,
+        BOAcquisitionFunction.QEHVI.value,
+        BOAcquisitionFunction.QLOGEHVI.value,
+        BOAcquisitionFunction.QLOGNPAREGO.value,
+    }
 
     # Object Name Constants
     FORM_INPUT_OBJECT_NAME = "FormInput"
@@ -344,8 +351,7 @@ class CampaignInfoStep(BaseStep):
         # Acquisition function section
         self.acquisition_combo = QComboBox()
         self.acquisition_combo.setObjectName("FormInput")
-        for func in BOAcquisitionFunction:
-            self.acquisition_combo.addItem(func.display_name, func.value)
+        self._refresh_acquisition_functions()
         acquisition_label = SectionHeader(self.ACQUISITION_FUNCTION_LABEL)
         acquisition_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
         form_layout.addRow(acquisition_label, self.acquisition_combo)
@@ -450,6 +456,8 @@ class CampaignInfoStep(BaseStep):
         show_weights = is_multi and strategy == MultiObjectiveStrategy.DESIRABILITY.value
         self._set_weight_column_visible(show_weights)
         self._update_remove_buttons()
+        if hasattr(self, "acquisition_combo"):
+            self._refresh_acquisition_functions()
 
     def _get_objective_scope(self) -> str:
         """Get the selected objective scope value."""
@@ -474,6 +482,34 @@ class CampaignInfoStep(BaseStep):
             self.targets_header_labels[5].setVisible(visible)
         for row in self.target_rows:
             row.set_weight_visible(visible)
+
+    def _get_supported_acquisition_functions(self) -> list[BOAcquisitionFunction]:
+        """Get the supported acquisition functions for the current objective selection."""
+        if (
+            self._get_objective_scope() == ObjectiveScope.MULTI.value
+            and self._get_multi_objective_strategy() == MultiObjectiveStrategy.PARETO.value
+        ):
+            return [func for func in BOAcquisitionFunction if func.value in self.PARETO_ACQUISITION_FUNCTIONS]
+
+        return [func for func in BOAcquisitionFunction if func.value not in self.PARETO_ACQUISITION_FUNCTIONS]
+
+    def _refresh_acquisition_functions(self, preferred_value: str | None = None) -> None:
+        """Refresh acquisition function options based on objective selection."""
+        current_value = preferred_value or self.acquisition_combo.currentData()
+        supported = self._get_supported_acquisition_functions()
+
+        self.acquisition_combo.blockSignals(True)
+        self.acquisition_combo.clear()
+        for func in supported:
+            self.acquisition_combo.addItem(func.display_name, func.value)
+
+        if current_value:
+            self._set_combo_value(self.acquisition_combo, current_value)
+
+        if self.acquisition_combo.currentIndex() < 0 and self.acquisition_combo.count() > 0:
+            self.acquisition_combo.setCurrentIndex(0)
+
+        self.acquisition_combo.blockSignals(False)
 
     def _add_targets_header(self):
         """Add header row for targets table."""
@@ -612,6 +648,10 @@ class CampaignInfoStep(BaseStep):
         self.campaign.description = self.description_input.toPlainText().strip()
         self.campaign.objective_scope = self._get_objective_scope()
         self.campaign.multi_objective_strategy = self._get_multi_objective_strategy()
+        self.campaign.surrogate_model = self.surrogate_combo.currentData() or self.surrogate_combo.currentText()
+        self.campaign.acquisition_function = (
+            self.acquisition_combo.currentData() or self.acquisition_combo.currentText()
+        )
 
         self.campaign.targets = []
         for row in self.target_rows:
@@ -626,6 +666,8 @@ class CampaignInfoStep(BaseStep):
         self._resolve_objective_defaults()
         self._set_combo_value(self.objective_scope_combo, self.campaign.objective_scope)
         self._set_combo_value(self.multi_objective_combo, self.campaign.multi_objective_strategy)
+        self._set_combo_value(self.surrogate_combo, self.campaign.surrogate_model)
+        self._refresh_acquisition_functions(preferred_value=self.campaign.acquisition_function)
 
         # Clear existing target rows
         for row in self.target_rows[:]:
@@ -647,6 +689,8 @@ class CampaignInfoStep(BaseStep):
 
         self._set_combo_value(self.objective_scope_combo, ObjectiveScope.SINGLE.value)
         self._set_combo_value(self.multi_objective_combo, MultiObjectiveStrategy.DESIRABILITY.value)
+        self._set_combo_value(self.surrogate_combo, BOSurrogateModel.GAUSSIAN_PROCESS_DEFAULT.value)
+        self._refresh_acquisition_functions(preferred_value=BOAcquisitionFunction.QLOGEI.value)
 
         for row in self.target_rows[:]:
             self._remove_target_row(row)
