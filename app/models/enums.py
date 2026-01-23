@@ -159,11 +159,14 @@ class BOAcquisitionFunction(str, Enum):
     QEI = ("qEI", "q-EI (Expected Improvement)")
     QLOGEI = ("qLogEI", "q-LogEI (Log Expected Improvement)")
     QNEI = ("qNEI", "q-NEI (Noisy Expected Improvement)")
-    QLOGNEI = ("qLogNEI", "q-LogNEI (Log Noisy Expected Improvement)")
-    QEHVI = ("qEHVI", "q-EHVI (Expected Hypervolume Improvement)")
-    QNEHVI = ("qNEHVI", "q-NEHVI (Noisy Expected Hypervolume Improvement)")
     QUCB = ("qUCB", "q-UCB (Upper Confidence Bound)")
     QTS = ("qTS", "q-TS (Thompson Sampling)")
+    QLOGNEI = ("qLogNEI", "q-LogNEI (Log Noisy Expected Improvement)")
+    QNEHVI = ("qNEHVI", "q-NEHVI (Noisy Expected Hypervolume Improvement)")
+    QLOGNEHVI = ("qLogNEHVI", "q-LogNEHVI (Log Noisy Expected Hypervolume Improvement)")
+    QEHVI = ("qEHVI", "q-EHVI (Expected Hypervolume Improvement)")
+    QLOGEHVI = ("qLogEHVI", "q-LogEHVI (Log Expected Hypervolume Improvement)")
+    QLOGNPAREGO = ("qLogNParEGO", "q-LogNParEGO (Log Noisy ParEGO)")
     RANDOM = ("Random", "Random")
 
 
