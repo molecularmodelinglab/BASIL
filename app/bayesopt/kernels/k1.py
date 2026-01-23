@@ -18,13 +18,9 @@ class DotProductKernel(Kernel):
         return self.sigma**2 + torch.mm(X, Y.T)
 
     def to_gpytorch(self, ard_num_dims=None, batch_shape=torch.Size([]), active_dims=None):
-        # Map your custom kernel to an existing gpytorch kernel
         return gpytorch.kernels.LinearKernel(
-            # num_dims=ard_num_dims,
             batch_shape=batch_shape,
             active_dims=active_dims,
-            # variance_prior=None,
-            # bias_prior=None,
         )
 
 
