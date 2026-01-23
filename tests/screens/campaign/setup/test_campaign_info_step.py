@@ -8,6 +8,7 @@ import pytest
 from PySide6.QtCore import Qt
 
 from app.models.campaign import Campaign, Target
+from app.models.enums import MultiObjectiveStrategy, ObjectiveScope
 from app.screens.campaign.setup.campaign_info_step import CampaignInfoStep, TargetRow
 
 
@@ -18,6 +19,8 @@ def sample_campaign():
     campaign.name = "Test Campaign"
     campaign.description = "A test campaign"
     campaign.targets = [Target(name="Yield", mode="Max"), Target(name="Purity", mode="Min")]
+    campaign.objective_scope = ObjectiveScope.MULTI.value
+    campaign.multi_objective_strategy = MultiObjectiveStrategy.DESIRABILITY.value
     return campaign
 
 
@@ -45,6 +48,13 @@ def test_initial_target_row_added(campaign_info_step):
 
 def test_add_target_button_functionality(qtbot, campaign_info_step):
     """Test that clicking add target button creates a new target row."""
+    campaign_info_step.objective_scope_combo.setCurrentIndex(
+        campaign_info_step.objective_scope_combo.findData(ObjectiveScope.MULTI.value)
+    )
+    campaign_info_step.multi_objective_combo.setCurrentIndex(
+        campaign_info_step.multi_objective_combo.findData(MultiObjectiveStrategy.DESIRABILITY.value)
+    )
+    campaign_info_step._apply_objective_selection()
     initial_count = len(campaign_info_step.target_rows)
 
     # Click the add target button
@@ -56,6 +66,13 @@ def test_add_target_button_functionality(qtbot, campaign_info_step):
 
 def test_remove_target_functionality(qtbot, campaign_info_step):
     """Test removing a target row."""
+    campaign_info_step.objective_scope_combo.setCurrentIndex(
+        campaign_info_step.objective_scope_combo.findData(ObjectiveScope.MULTI.value)
+    )
+    campaign_info_step.multi_objective_combo.setCurrentIndex(
+        campaign_info_step.multi_objective_combo.findData(MultiObjectiveStrategy.DESIRABILITY.value)
+    )
+    campaign_info_step._apply_objective_selection()
     # Add multiple targets first
     campaign_info_step._add_target_row()
     campaign_info_step._add_target_row()
@@ -145,6 +162,13 @@ def test_validation_with_empty_targets(_, campaign_info_step):
 def test_validation_with_invalid_targets(_, campaign_info_step):
     """Test validation when targets have empty names."""
     # Add a target with empty name
+    campaign_info_step.objective_scope_combo.setCurrentIndex(
+        campaign_info_step.objective_scope_combo.findData(ObjectiveScope.MULTI.value)
+    )
+    campaign_info_step.multi_objective_combo.setCurrentIndex(
+        campaign_info_step.multi_objective_combo.findData(MultiObjectiveStrategy.DESIRABILITY.value)
+    )
+    campaign_info_step._apply_objective_selection()
     campaign_info_step._add_target_row()
     if campaign_info_step.target_rows:
         campaign_info_step.target_rows[0].name_input.setText("")
@@ -156,7 +180,10 @@ def test_validation_with_invalid_targets(_, campaign_info_step):
 def test_validation_with_valid_targets(campaign_info_step):
     """Test validation when targets are valid."""
     # Add a target with proper data
-    campaign_info_step._add_target_row()
+    campaign_info_step.objective_scope_combo.setCurrentIndex(
+        campaign_info_step.objective_scope_combo.findData(ObjectiveScope.SINGLE.value)
+    )
+    campaign_info_step._apply_objective_selection()
     if campaign_info_step.target_rows:
         campaign_info_step.target_rows[0].name_input.setText("Valid Target")
 
