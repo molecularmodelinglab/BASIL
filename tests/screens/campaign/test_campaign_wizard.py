@@ -18,6 +18,7 @@ class MockStepWidget(QWidget):
         self.validate = MagicMock()
         self.save_data = MagicMock()
         self.reset = MagicMock()
+        self.has_data = MagicMock(return_value=False)
 
 
 class TestCampaignWizard(unittest.TestCase):
