@@ -2,16 +2,17 @@
 Screen showing experiment generation progress.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QPainter, QPixmap
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout, QWidget
 
 from app.core.base import BaseWidget
+from app.screens.campaign.panel.services.log_viewer import LogViewerDialog
 from app.shared.components.buttons import PrimaryButton, SecondaryButton
 from app.shared.components.cards import Card
-from app.shared.components.dialogs import ConfirmationDialog
+from app.shared.components.dialogs import ConfirmationDialog, InfoDialog
 
 
 class GenerationProgressScreen(BaseWidget):
@@ -32,11 +33,6 @@ class GenerationProgressScreen(BaseWidget):
         self.experiment_count = experiment_count
         self.is_first_run = is_first_run
         self.start_time = datetime.now()
-        self.last_update_time = datetime.now()
-
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self._update_last_update_display)
-        self.update_timer.start(60000)
 
         super().__init__(parent)
 
@@ -91,12 +87,36 @@ class GenerationProgressScreen(BaseWidget):
         self.status_label.setStyleSheet("color: #444; font-size: 12px;")
         layout.addWidget(self.status_label)
 
-        self.last_update_label = QLabel()
-        self.last_update_label.setObjectName("LastUpdateLabel")
-        self.last_update_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.last_update_label.setStyleSheet("color: #888; font-size: 11px;")
-        self._update_last_update_display()
-        layout.addWidget(self.last_update_label)
+        time_layout = QHBoxLayout()
+        time_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        time_layout.setSpacing(15)
+
+        self.elapsed_time_label = QLabel("Elapsed time: 0:00")
+        self.elapsed_time_label.setObjectName("elapsedTimeLabel")
+        self.elapsed_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.elapsed_time_label.setStyleSheet("color: #666; font-size: 14px; font-weight: 500;")
+        layout.addWidget(self.elapsed_time_label)
+
+        self.view_logs_link = QPushButton("(view logs)")
+        self.view_logs_link.setObjectName("viewLogsLink")
+        self.view_logs_link.clicked.connect(self._open_log_viewer)
+        self.view_logs_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.view_logs_link.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                color: #3b82f6;
+                font-size: 13px;
+                text-decoration: underline;
+                padding: 0;
+            }
+            QPushButton:hover {
+                color: #2563eb;
+            }
+        """)
+        time_layout.addWidget(self.view_logs_link)
+
+        layout.addLayout(time_layout)
 
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
@@ -137,21 +157,6 @@ class GenerationProgressScreen(BaseWidget):
 
         return pixmap
 
-    def _update_last_update_display(self):
-        """Update the last update time display."""
-        elapsed = datetime.now() - self.last_update_time
-
-        if elapsed < timedelta(minutes=1):
-            time_text = "Just now"
-        elif elapsed < timedelta(hours=1):
-            minutes = int(elapsed.total_seconds() // 60)
-            time_text = f"{minutes} min ago"
-        else:
-            hours = int(elapsed.total_seconds() // 3600)
-            time_text = f"{hours} hour{'s' if hours > 1 else ''} ago"
-
-        self.last_update_label.setText(self.LAST_UPDATE_TEXT.format(time=time_text))
-
     def _handle_back_to_runs(self):
         """Handle back to runs button click."""
         if not self.is_first_run:
@@ -173,8 +178,6 @@ class GenerationProgressScreen(BaseWidget):
     def update_status(self, status_text: str):
         """Update the status text."""
         self.status_label.setText(status_text)
-        self.last_update_time = datetime.now()
-        self._update_last_update_display()
 
     def set_progress(self, value: int, maximum: int = 100):
         """Set determinate progress."""
@@ -183,9 +186,26 @@ class GenerationProgressScreen(BaseWidget):
 
     def complete_generation(self, experiments: list):
         """Complete the generation process."""
-        self.update_timer.stop()
         self.generation_completed.emit(experiments)
 
     def get_panel_buttons(self):
         """Return empty list as buttons are handled internally."""
         return []
+
+    def update_elapsed_time(self, seconds: int):
+        """Update the elapsed time display."""
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        secs = seconds % 60
+
+        if hours > 0:
+            self.elapsed_time_label.setText(f"Elapsed time: {hours}:{minutes:02d}:{secs:02d}")
+        else:
+            self.elapsed_time_label.setText(f"Elapsed time: {minutes}:{secs:02d}")
+
+    def _open_log_viewer(self):
+        """Open the live log viewer dialog."""
+        if not hasattr(self, "log_file_path") or not self.log_file_path:
+            InfoDialog.show_info("Logs Not Available", "Log file path not configured yet.", parent=self)
+            return
+        LogViewerDialog.show_logs(self.log_file_path, parent=self)

@@ -2,6 +2,9 @@
 Runs panel managing the complete experiment workflow.
 """
 
+import threading
+import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal
@@ -26,6 +29,10 @@ class ExperimentGenerationWorker(QObject):
     progress_updated = Signal(str)
     generation_completed = Signal(list)
     generation_failed = Signal(str)
+    elapsed_time_updated = Signal(int)
+    log_path_ready = Signal(Path)
+
+    TIME_UPDATE_INTERVAL_SECONDS = 1
 
     def __init__(self, campaign: Campaign, workspace_path: str, num_experiments: int, has_previous_data: bool):
         super().__init__()
@@ -37,10 +44,25 @@ class ExperimentGenerationWorker(QObject):
 
     def run(self):
         """Run the experiment generation process."""
+        start_time = time.time()
+
+        def update_elapsed_time():
+            """Update elapsed time every second."""
+            while not self.should_cancel:
+                elapsed = int(time.time() - start_time)
+                self.elapsed_time_updated.emit(elapsed)
+                time.sleep(self.TIME_UPDATE_INTERVAL_SECONDS)
+
+        # Start timer thread
+        timer_thread = threading.Thread(target=update_elapsed_time, daemon=True)
+        timer_thread.start()
+
         try:
             self.progress_updated.emit("Initializing BayBe service...")
 
             baybe_service = BayBeService(self.campaign, self.workspace_path)
+            log_file_path = baybe_service.get_log_file_path()
+            self.log_path_ready.emit(log_file_path)
 
             if self.should_cancel:
                 return
@@ -58,6 +80,8 @@ class ExperimentGenerationWorker(QObject):
 
         except Exception as e:
             self.generation_failed.emit(str(e))
+        finally:
+            self.should_cancel = True  # Stop timer thread
 
     def cancel(self):
         """Cancel the generation process."""
@@ -242,6 +266,8 @@ class RunsPanel(BaseWidget):
         self.generation_worker.progress_updated.connect(self._handle_generation_progress)
         self.generation_worker.generation_completed.connect(self._handle_generation_completed)
         self.generation_worker.generation_failed.connect(self._handle_generation_failed)
+        self.generation_worker.elapsed_time_updated.connect(self._handle_elapsed_time_updated)
+        self.generation_worker.log_path_ready.connect(self._handle_log_path_ready)
 
         self.generation_thread.start()
 
@@ -325,6 +351,16 @@ class RunsPanel(BaseWidget):
         from app.shared.components.dialogs import InfoDialog
 
         InfoDialog.show_info("Results Saved", "Experiment results have been saved successfully.", parent=self)
+
+    def _handle_elapsed_time_updated(self, seconds: int):
+        """Handle elapsed time updates."""
+        if self.generation_progress_widget:
+            self.generation_progress_widget.update_elapsed_time(seconds)
+
+    def _handle_log_path_ready(self, log_file_path: Path):
+        """Handle log file path from worker."""
+        if self.generation_progress_widget:
+            self.generation_progress_widget.log_file_path = log_file_path
 
     def _get_clock_icon_pixmap(self) -> QPixmap:
         """Get a clock icon pixmap."""

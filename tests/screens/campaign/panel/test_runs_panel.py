@@ -117,6 +117,7 @@ def test_handle_generate_new_run_accepted(mock_dialog, qtbot, runs_panel):
 
         # Should switch to generation progress state
         assert runs_panel.current_state == RunsPanel.GENERATION_PROGRESS_STATE
+        assert runs_panel.generation_progress_widget is not None
         mock_start.assert_called_once_with(5, False)  # has_previous_data should be False initially
 
 
@@ -232,6 +233,20 @@ def test_clock_icon_creation(runs_panel):
     assert pixmap is not None
     assert pixmap.width() == 48
     assert pixmap.height() == 48
+
+
+def test_handle_log_path_ready(runs_panel):
+    """Test handling of log path ready signal."""
+    # Create generation progress widget
+    runs_panel._switch_to_generation_progress_state(5, True)
+
+    test_log_path = Path("/test/path/to/logs/bayesian_generation.log")
+
+    # Handle log path ready
+    runs_panel._handle_log_path_ready(test_log_path)
+
+    # Verify the log path was set
+    assert runs_panel.generation_progress_widget.log_file_path == test_log_path
 
 
 # Test ExperimentGenerationWorker
