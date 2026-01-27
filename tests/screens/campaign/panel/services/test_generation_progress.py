@@ -6,7 +6,6 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import QTimer
 
 from app.screens.campaign.panel.services.generation_progress import GenerationProgressScreen
 
@@ -36,7 +35,6 @@ class TestGenerationProgressScreen:
         assert screen.experiment_count == 5
         assert screen.is_first_run is True
         assert isinstance(screen.start_time, datetime)
-        assert isinstance(screen.last_update_time, datetime)
         assert hasattr(screen, "back_to_runs_requested")
         assert hasattr(screen, "cancel_run_requested")
         assert hasattr(screen, "generation_completed")
@@ -51,12 +49,6 @@ class TestGenerationProgressScreen:
         """Test that the screen has a progress card."""
         assert hasattr(progress_screen_first_run, "progress_card")
         assert progress_screen_first_run.progress_card is not None
-
-    def test_screen_has_timer(self, progress_screen_first_run):
-        """Test that the screen has an update timer."""
-        assert hasattr(progress_screen_first_run, "update_timer")
-        assert isinstance(progress_screen_first_run.update_timer, QTimer)
-        assert progress_screen_first_run.update_timer.isActive()
 
     def test_get_panel_buttons_first_run(self, progress_screen_first_run):
         """Test panel buttons for first run."""
@@ -84,16 +76,6 @@ class TestGenerationProgressScreen:
         assert hasattr(progress_screen_first_run, "_handle_cancel_run")
         assert hasattr(progress_screen_first_run, "cancel_run_requested")
 
-    def test_update_status(self, progress_screen_first_run):
-        """Test updating the status message."""
-        initial_update_time = progress_screen_first_run.last_update_time
-
-        new_status = "Processing experiments..."
-        progress_screen_first_run.update_status(new_status)
-
-        # Should update the last update time
-        assert progress_screen_first_run.last_update_time > initial_update_time
-
     def test_update_progress(self, progress_screen_first_run):
         """Test updating the progress bar."""
         progress_screen_first_run.set_progress(50)  # 50% progress
@@ -115,20 +97,6 @@ class TestGenerationProgressScreen:
         assert pixmap is not None
         assert pixmap.width() == 48
         assert pixmap.height() == 48
-
-    def test_timer_update_function(self, progress_screen_first_run):
-        """Test the timer update function."""
-        # Should have a method connected to timer timeout
-        assert hasattr(progress_screen_first_run, "_update_last_update_display")
-
-    def test_cleanup_on_destruction(self, progress_screen_first_run):
-        """Test proper cleanup when screen is destroyed."""
-        timer = progress_screen_first_run.update_timer
-        assert timer.isActive()
-
-        # When the screen is destroyed, timer should be cleaned up
-        progress_screen_first_run.setParent(None)
-        progress_screen_first_run.deleteLater()
 
     def test_elapsed_time_calculation(self, progress_screen_first_run):
         """Test elapsed time calculation."""
@@ -156,7 +124,6 @@ class TestGenerationProgressScreen:
         assert hasattr(screen, "STATUS_TEXT")
         assert hasattr(screen, "BACK_TO_RUNS_TEXT")
         assert hasattr(screen, "CANCEL_RUN_TEXT")
-        assert hasattr(screen, "LAST_UPDATE_TEXT")
 
     def test_progress_bar_setup(self, progress_screen_first_run):
         """Test that progress bar is properly set up."""
@@ -180,12 +147,6 @@ class TestGenerationProgressScreen:
         """Test that experiment count is displayed."""
         # Screen should show the experiment count somewhere
         assert progress_screen_first_run.experiment_count == 5
-
-    def test_time_formatting(self, progress_screen_first_run):
-        """Test time formatting in last update display."""
-        # Should be able to format the last update time
-        formatted_time = progress_screen_first_run.last_update_time.strftime("%H:%M:%S")
-        assert len(formatted_time) > 0
 
     @patch("app.shared.components.dialogs.ConfirmationDialog.show_confirmation")
     def test_handle_cancel_run_confirmed(self, mock_confirm, qtbot, progress_screen_first_run):
@@ -217,3 +178,49 @@ class TestGenerationProgressScreen:
         # Test completion state
         progress_screen_first_run.update_status("Experiments generated!")
         progress_screen_first_run.set_progress(100, 100)
+
+    def test_update_elapsed_time(self, progress_screen_first_run):
+        """Test updating elapsed time display."""
+        # Test seconds only
+        progress_screen_first_run.update_elapsed_time(45)
+        assert "0:45" in progress_screen_first_run.elapsed_time_label.text()
+
+        # Test minutes and seconds
+        progress_screen_first_run.update_elapsed_time(125)  # 2:05
+        assert "2:05" in progress_screen_first_run.elapsed_time_label.text()
+
+        # Test hours
+        progress_screen_first_run.update_elapsed_time(3665)  # 1:01:05
+        assert "1:01:05" in progress_screen_first_run.elapsed_time_label.text()
+
+    def test_view_logs_link_exists(self, progress_screen_first_run):
+        """Test that view logs link is created."""
+        assert hasattr(progress_screen_first_run, "view_logs_link")
+        assert progress_screen_first_run.view_logs_link is not None
+
+    def test_log_file_path_attribute(self, progress_screen_first_run):
+        """Test that log_file_path attribute can be set."""
+        from pathlib import Path
+
+        test_path = Path("/test/path/to/logs.log")
+        progress_screen_first_run.log_file_path = test_path
+        assert progress_screen_first_run.log_file_path == test_path
+
+    @patch("app.screens.campaign.panel.services.log_viewer.LogViewerDialog.show_logs")
+    def test_open_log_viewer(self, mock_show_logs, progress_screen_first_run):
+        """Test opening log viewer dialog."""
+        from pathlib import Path
+
+        test_path = Path("/test/path/to/logs.log")
+        progress_screen_first_run.log_file_path = test_path
+
+        progress_screen_first_run._open_log_viewer()
+
+        mock_show_logs.assert_called_once_with(test_path, parent=progress_screen_first_run)
+
+    @patch("app.shared.components.dialogs.InfoDialog.show_info")
+    def test_open_log_viewer_no_path(self, mock_info, progress_screen_first_run):
+        """Test opening log viewer when path is not set."""
+        progress_screen_first_run._open_log_viewer()
+
+        mock_info.assert_called_once()

@@ -5,7 +5,6 @@ BayBe integration service for experiment generation and optimization.
 import contextlib
 import logging
 import random
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -333,14 +332,6 @@ class BayBeIntegrationService:
     def get_log_file_path(self) -> Path:
         """Get the path to the BayBe log file."""
         return self.campaign_folder / self.LOG_FOLDERNAME / self.LOG_FILENAME
-
-    def get_last_log_update_time(self) -> Optional[datetime]:
-        """Get the last modification time of the log file."""
-        log_file = self.get_log_file_path()
-        if log_file.exists():
-            timestamp = log_file.stat().st_mtime
-            return datetime.fromtimestamp(timestamp)
-        return None
 
     def get_campaign_info(self) -> Dict[str, Any]:
         """
