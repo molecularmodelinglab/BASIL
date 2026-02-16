@@ -38,7 +38,7 @@ def test_campaign_panel_creation(campaign_panel, sample_campaign):
 
 def test_campaign_panel_has_all_tabs(campaign_panel):
     """Test that all required tabs are created."""
-    expected_tabs = ["Runs", "Parameters", "Settings"]
+    expected_tabs = ["Runs", "Parameters And Targets", "Settings"]
 
     # Check that all tabs exist
     for tab_name in expected_tabs:
@@ -57,7 +57,7 @@ def test_campaign_panel_initial_tab_is_runs(campaign_panel):
     assert runs_tab.objectName() == "ActiveTab"
 
     # Check that other tabs are inactive
-    assert campaign_panel.tabs["Parameters"].objectName() == "InactiveTab"
+    assert campaign_panel.tabs["Parameters And Targets"].objectName() == "InactiveTab"
     assert campaign_panel.tabs["Settings"].objectName() == "InactiveTab"
 
     # Check that Runs panel is visible
@@ -70,16 +70,16 @@ def test_tab_switching(qtbot, campaign_panel):
     assert campaign_panel.stacked_widget.currentWidget() == campaign_panel.panels["Runs"]
 
     # Switch to Parameters tab
-    qtbot.mouseClick(campaign_panel.tabs["Parameters"], Qt.LeftButton)
-    assert campaign_panel.stacked_widget.currentWidget() == campaign_panel.panels["Parameters"]
-    assert campaign_panel.tabs["Parameters"].objectName() == "ActiveTab"
+    qtbot.mouseClick(campaign_panel.tabs["Parameters And Targets"], Qt.LeftButton)
+    assert campaign_panel.stacked_widget.currentWidget() == campaign_panel.panels["Parameters And Targets"]
+    assert campaign_panel.tabs["Parameters And Targets"].objectName() == "ActiveTab"
     assert campaign_panel.tabs["Runs"].objectName() == "InactiveTab"
 
     # Switch to Settings tab
     qtbot.mouseClick(campaign_panel.tabs["Settings"], Qt.LeftButton)
     assert campaign_panel.stacked_widget.currentWidget() == campaign_panel.panels["Settings"]
     assert campaign_panel.tabs["Settings"].objectName() == "ActiveTab"
-    assert campaign_panel.tabs["Parameters"].objectName() == "InactiveTab"
+    assert campaign_panel.tabs["Parameters And Targets"].objectName() == "InactiveTab"
 
 
 def test_campaign_metadata_display(campaign_panel, sample_campaign):
