@@ -80,7 +80,6 @@ def parameters_panel(qtbot):
 def parameters_panel_with_campaign(qtbot, mock_campaign):
     """Create a ParametersPanel with campaign data for testing."""
     with patch("app.screens.campaign.panel.parameters_panel.TargetFormatter") as mock_formatter:
-        # Mock all the target formatter methods to return strings
         mock_formatter.format_target_mode.return_value = "Maximize"
         mock_formatter.format_target_transform.return_value = "None"
         mock_formatter.format_target_weight.return_value = "1.0"
