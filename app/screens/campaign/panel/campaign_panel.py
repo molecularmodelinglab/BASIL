@@ -28,7 +28,7 @@ class CampaignPanelScreen(BaseScreen):
     APP_TITLE = "BASIL"
     HOME_BUTTON_TEXT = "Home"
     RUNS_TAB_TEXT = "Runs"
-    PARAMETERS_TAB_TEXT = "Parameters"
+    PARAMETERS_TAB_TEXT = "Parameters And Targets"
     VISUALIZATIONS_TAB_TEXT = "Visualizations"
     EXPLANATIONS_TAB_TEXT = "Explanations"
     SETTINGS_TAB_TEXT = "Settings"
