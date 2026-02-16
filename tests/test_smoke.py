@@ -73,7 +73,7 @@ def test_campaign_panel_integration(qtbot):
     # Verify initial state
     assert panel.campaign == campaign
     assert "Runs" in panel.tabs
-    assert "Parameters" in panel.tabs
+    assert "Parameters And Targets" in panel.tabs
     assert "Settings" in panel.tabs
 
 
