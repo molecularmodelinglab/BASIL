@@ -6,7 +6,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit, QVBoxLayout, QWidget
 
 from app.core.base import BaseWidget
-from app.models.enums import BOAcquisitionFunction, BOSurrogateModel
+from app.models.enums import BOAcquisitionFunction, BOSurrogateModel, MultiObjectiveStrategy
 from app.screens.start.components.campaign_loader import CampaignLoader
 from app.shared.components.buttons import DangerButton, PrimaryButton
 from app.shared.components.dialogs import ConfirmationDialog, ErrorDialog, InfoDialog
@@ -118,6 +118,14 @@ class SettingsPanel(BaseWidget):
         form_layout.addRow(desc_label, description_section)
 
         if self.campaign:
+            if self.campaign.multi_objective_strategy:
+                multi_objective_label = QLabel("Multi-Objective Strategy")
+                multi_objective_label.setObjectName("FormLabel")
+                multi_objective_value = self._get_enum_display_name(
+                    MultiObjectiveStrategy, self.campaign.multi_objective_strategy
+                )
+                form_layout.addRow(multi_objective_label, QLabel(multi_objective_value))
+
             surrogate_label = QLabel("Surrogate Model")
             surrogate_label.setObjectName("FormLabel")
             surrogate_value = self._get_enum_display_name(BOSurrogateModel, self.campaign.surrogate_model)
