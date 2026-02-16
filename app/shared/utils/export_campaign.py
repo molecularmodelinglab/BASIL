@@ -65,6 +65,20 @@ class CampaignExporter:
 
                 writer.writerow([])
 
+            if hasattr(campaign, "targets") and campaign.targets:
+                writer.writerow(["Targets"])
+                writer.writerow(["Target Name", "Mode", "Transform", "Weight", "Values"])  # To add new columns
+
+                for target in campaign.targets:
+                    target_name = target.name or ""
+                    target_mode = CampaignExporter._format_target_mode(target)
+                    target_transform = CampaignExporter._format_target_transform(target)
+                    target_weight = CampaignExporter._format_target_weight(target)
+                    target_values = CampaignExporter._format_target_values(target)
+                    writer.writerow([target_name, target_mode, target_transform, target_weight, target_values])
+
+                writer.writerow([])
+
             if hasattr(campaign, "experiments") and campaign.experiments:
                 writer.writerow(["Experiments"])
                 writer.writerow(["Experiment ID", "Status", "Results"])
@@ -148,6 +162,59 @@ class CampaignExporter:
         except Exception as e:
             return f"Error: {str(e)}"
 
+    @staticmethod
+    def _format_target_mode(target) -> str:
+        """Format target mode for display."""
+        if not hasattr(target, "mode") or not target.mode:
+            return "N/A"
+
+        target_mode = target.mode
+        try:
+            if target_mode == "Min":
+                return "Minimize"
+            elif target_mode == "Max":
+                return "Maximize"
+            elif target_mode == "Match":
+                return "Match"
+            else:
+                return target_mode.replace("_", " ")
+        except Exception:
+            return "N/A"
+
+    @staticmethod
+    def _format_target_transform(target) -> str:
+        """Format target transform for display."""
+        if not hasattr(target, "transformation") or not target.transformation:
+            return "N/A"
+        target_transformation = target.transformation
+        try:
+            return target_transformation
+        except Exception:
+            return "N/A"
+
+    @staticmethod
+    def _format_target_weight(target) -> str:
+        """Format target weight for display."""
+        if not hasattr(target, "weight") or not target.weight:
+            return "N/A"
+        target_weight = target.weight
+        try:
+            return str(target_weight)
+        except Exception:
+            return "N/A"
+
+    @staticmethod
+    def _format_target_values(target) -> str:
+        """Format target values for display."""
+        min_value = "-inf"
+        max_value = "+inf"
+        if hasattr(target, "min_value") and target.min_value:
+            min_value = str(target.min_value)
+        if hasattr(target, "max_value") and target.max_value:
+            max_value = str(target.max_value)
+
+        return f"min: {min_value}, max: {max_value}"
+
 
 class ParameterFormatter:
     """Utility class for formatting parameter data for display."""
@@ -161,3 +228,27 @@ class ParameterFormatter:
     def format_parameter_values(param) -> str:
         """Format parameter values for display."""
         return CampaignExporter._format_parameter_values(param)
+
+
+class TargetFormatter:
+    """Utility class for formatting target data for display."""
+
+    @staticmethod
+    def format_target_mode(target) -> str:
+        """Format target mode for display."""
+        return CampaignExporter._format_target_mode(target)
+
+    @staticmethod
+    def format_target_transform(target) -> str:
+        """Format target transform for display."""
+        return CampaignExporter._format_target_transform(target)
+
+    @staticmethod
+    def format_target_weight(target) -> str:
+        """Format target weight for display."""
+        return CampaignExporter._format_target_weight(target)
+
+    @staticmethod
+    def format_target_values(target) -> str:
+        """Format target values for display."""
+        return CampaignExporter._format_target_values(target)
