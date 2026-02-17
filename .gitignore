@@ -18,3 +18,4 @@ __pycache__/
 # Dist builds
 build/
 dist/
+.pytest_cache
