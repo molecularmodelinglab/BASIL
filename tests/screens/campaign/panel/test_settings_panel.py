@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel
 
 from app.models.campaign import Campaign
 from app.screens.campaign.panel.settings_panel import SettingsPanel
@@ -18,7 +19,8 @@ def sample_campaign():
     campaign.id = "test-campaign-123"
     campaign.name = "Test Campaign"
     campaign.description = "A test campaign for unit testing"
-    campaign.multi_objective_strategy = "pareto"
+    campaign.objective_scope = "single"
+    campaign.multi_objective_strategy = None
     campaign.surrogate_model = "gp"
     campaign.acquisition_function = "ei"
     return campaign
@@ -58,110 +60,83 @@ def test_initial_form_state_is_readonly(settings_panel):
 
 def test_name_edit_mode_toggle(qtbot, settings_panel):
     """Test toggling name field edit mode."""
-    # Initially read-only
     assert settings_panel.name_input.isReadOnly() is True
     assert settings_panel.rename_button.text() == "Rename"
 
-    # Click rename button to enter edit mode
     qtbot.mouseClick(settings_panel.rename_button, Qt.LeftButton)
 
-    # Should now be editable
     assert settings_panel.name_input.isReadOnly() is False
     assert settings_panel.rename_button.text() == "Save"
 
 
 def test_description_edit_mode_toggle(qtbot, settings_panel):
     """Test toggling description field edit mode."""
-    # Initially read-only
     assert settings_panel.description_input.isReadOnly() is True
     assert settings_panel.edit_button.text() == "Edit"
 
-    # Click edit button to enter edit mode
     qtbot.mouseClick(settings_panel.edit_button, Qt.LeftButton)
 
-    # Should now be editable
     assert settings_panel.description_input.isReadOnly() is False
     assert settings_panel.edit_button.text() == "Save"
 
 
 def test_successful_name_save(qtbot, settings_panel, sample_campaign):
     """Test successful campaign name saving."""
-    # Mock the campaign loader
     mock_loader_instance = Mock()
     settings_panel.campaign_loader = mock_loader_instance
 
-    # Enter edit mode
     qtbot.mouseClick(settings_panel.rename_button, Qt.LeftButton)
 
-    # Change the name
     settings_panel.name_input.clear()
     qtbot.keyClicks(settings_panel.name_input, "New Campaign Name")
 
-    # Save the changes
     with qtbot.waitSignal(settings_panel.campaign_renamed, timeout=1000):
         qtbot.mouseClick(settings_panel.rename_button, Qt.LeftButton)
 
-    # Verify the campaign was updated
     assert settings_panel.campaign.name == "New Campaign Name"
     assert settings_panel.name_input.isReadOnly() is True
     assert settings_panel.rename_button.text() == "Rename"
-
-    # Verify the loader was called
     mock_loader_instance.update_campaign.assert_called_once()
 
 
 def test_successful_description_save(qtbot, settings_panel, sample_campaign):
     """Test successful campaign description saving."""
-    # Mock the campaign loader
     mock_loader_instance = Mock()
     settings_panel.campaign_loader = mock_loader_instance
 
-    # Enter edit mode
     qtbot.mouseClick(settings_panel.edit_button, Qt.LeftButton)
 
-    # Change the description
     settings_panel.description_input.clear()
     qtbot.keyClicks(settings_panel.description_input, "New campaign description")
 
-    # Save the changes
     with qtbot.waitSignal(settings_panel.campaign_description_updated, timeout=1000):
         qtbot.mouseClick(settings_panel.edit_button, Qt.LeftButton)
 
-    # Verify the campaign was updated
     assert settings_panel.campaign.description == "New campaign description"
     assert settings_panel.description_input.isReadOnly() is True
     assert settings_panel.edit_button.text() == "Edit"
-
-    # Verify the loader was called
     mock_loader_instance.update_campaign.assert_called_once()
 
 
 @patch("app.screens.campaign.panel.settings_panel.ErrorDialog")
 def test_save_failure_reverts_changes(mock_error_dialog, qtbot, settings_panel, sample_campaign):
     """Test that save failure reverts changes."""
-    # Mock the campaign loader to fail
     mock_loader_instance = Mock()
     mock_loader_instance.update_campaign.side_effect = Exception("Save failed")
     settings_panel.campaign_loader = mock_loader_instance
 
     original_name = sample_campaign.name
 
-    # Enter edit mode
     qtbot.mouseClick(settings_panel.rename_button, Qt.LeftButton)
 
-    # Change the name
     settings_panel.name_input.clear()
     qtbot.keyClicks(settings_panel.name_input, "Failed Name Change")
 
-    # Try to save (should fail)
     qtbot.mouseClick(settings_panel.rename_button, Qt.LeftButton)
 
-    # Verify the campaign name was reverted
     assert settings_panel.campaign.name == original_name
     assert settings_panel.name_input.text() == original_name
     assert settings_panel.name_input.isReadOnly() is True
-
-    # Verify error dialog was shown
     mock_error_dialog.show_error.assert_called_once()
 
 
@@ -169,7 +144,6 @@ def test_get_panel_buttons_returns_correct_buttons(settings_panel):
     """Test that get_panel_buttons returns the expected buttons."""
     buttons = settings_panel.get_panel_buttons()
 
-    # Should return delete and export buttons
     assert len(buttons) == 2
 
     button_texts = [button.text() for button in buttons]
@@ -218,7 +192,6 @@ def test_panel_without_campaign_loader():
     """Test panel behavior when no campaign loader is available."""
     panel = SettingsPanel()
 
-    # Should not crash
     result = panel._save_campaign_changes()
     assert result is False
 
@@ -228,6 +201,28 @@ def test_save_without_campaign(settings_panel):
     settings_panel.campaign = None
 
     result = settings_panel._save_campaign_changes()
+    assert result is False
+
+
+def test_save_campaign_changes_success(settings_panel):
+    """Test successful campaign save."""
+    mock_loader = Mock()
+    settings_panel.campaign_loader = mock_loader
+
+    result = settings_panel._save_campaign_changes()
+
+    assert result is True
+    mock_loader.update_campaign.assert_called_once_with(settings_panel.campaign)
+
+
+def test_save_campaign_changes_failure(settings_panel):
+    """Test failed campaign save."""
+    mock_loader = Mock()
+    mock_loader.update_campaign.side_effect = Exception("Save error")
+    settings_panel.campaign_loader = mock_loader
+
+    result = settings_panel._save_campaign_changes()
+
     assert result is False
 
 
@@ -275,7 +270,6 @@ def test_delete_campaign_success_emits_signal(mock_info_dialog, mock_confirmatio
     """Test that successful campaign deletion emits the signal."""
     mock_confirmation.show_confirmation.return_value = True
 
-    # Mock the delete files method to return success
     with patch.object(settings_panel, "_delete_campaign_files", return_value=True):
         buttons = settings_panel.get_panel_buttons()
         delete_button = next(btn for btn in buttons if btn.text() == "Delete Campaign")
@@ -292,7 +286,6 @@ def test_delete_campaign_failure_shows_error(mock_error_dialog, mock_confirmatio
     """Test that failed campaign deletion shows error dialog."""
     mock_confirmation.show_confirmation.return_value = True
 
-    # Mock the delete files method to return failure
     with patch.object(settings_panel, "_delete_campaign_files", return_value=False):
         buttons = settings_panel.get_panel_buttons()
         delete_button = next(btn for btn in buttons if btn.text() == "Delete Campaign")
@@ -317,13 +310,11 @@ def test_delete_campaign_with_no_campaign(mock_error_dialog, qtbot):
 
 def test_delete_campaign_files_success(settings_panel, tmp_path):
     """Test successful deletion of campaign files."""
-    # Create a temporary campaign folder
     campaigns_dir = tmp_path / "campaigns"
     campaigns_dir.mkdir()
     campaign_folder = campaigns_dir / settings_panel.campaign.id
     campaign_folder.mkdir()
 
-    # Create a dummy file in the campaign folder
     (campaign_folder / "data.json").write_text("{}")
 
     settings_panel.workspace_path = str(tmp_path)
@@ -355,28 +346,6 @@ def test_delete_campaign_files_no_workspace(settings_panel):
     assert result is False
 
 
-def test_save_campaign_changes_success(settings_panel):
-    """Test successful campaign save."""
-    mock_loader = Mock()
-    settings_panel.campaign_loader = mock_loader
-
-    result = settings_panel._save_campaign_changes()
-
-    assert result is True
-    mock_loader.update_campaign.assert_called_once_with(settings_panel.campaign)
-
-
-def test_save_campaign_changes_failure(settings_panel):
-    """Test failed campaign save."""
-    mock_loader = Mock()
-    mock_loader.update_campaign.side_effect = Exception("Save error")
-    settings_panel.campaign_loader = mock_loader
-
-    result = settings_panel._save_campaign_changes()
-
-    assert result is False
-
-
 def test_get_enum_display_name_success(settings_panel):
     """Test getting enum display name successfully."""
     from app.models.enums import BOSurrogateModel
@@ -387,12 +356,11 @@ def test_get_enum_display_name_success(settings_panel):
 
 
 def test_get_enum_display_name_fallback(settings_panel):
-    """Test getting enum display name with fallback."""
+    """Test getting enum display name with fallback to raw value."""
     from app.models.enums import BOSurrogateModel
 
     result = SettingsPanel._get_enum_display_name(BOSurrogateModel, "invalid_value")
 
-    # Should fall back to the raw value
     assert result == "invalid_value"
 
 
@@ -407,9 +375,85 @@ def test_panel_with_minimal_campaign(qtbot):
     minimal_campaign.id = "minimal-id"
     minimal_campaign.name = None
     minimal_campaign.description = None
+    minimal_campaign.objective_scope = "single"
+    minimal_campaign.multi_objective_strategy = None
+    minimal_campaign.surrogate_model = None
+    minimal_campaign.acquisition_function = None
 
     panel = SettingsPanel(minimal_campaign, workspace_path="test_workspace")
     qtbot.addWidget(panel)
 
     assert panel.name_input.text() == ""
     assert panel.description_input.toPlainText() == ""
+
+
+def test_panel_single_objective_strategy_display(qtbot):
+    """Test that single objective strategy label displays correctly."""
+    campaign = Campaign()
+    campaign.id = "test-id"
+    campaign.name = "Test"
+    campaign.description = ""
+    campaign.objective_scope = "single"
+    campaign.multi_objective_strategy = None
+    campaign.surrogate_model = "gp"
+    campaign.acquisition_function = "ei"
+
+    panel = SettingsPanel(campaign, workspace_path="test_workspace")
+    qtbot.addWidget(panel)
+
+    label_texts = [label.text() for label in panel.findChildren(QLabel)]
+    assert "Single Objective" in label_texts
+
+
+def test_panel_multi_objective_pareto_display(qtbot):
+    """Test that multi objective pareto strategy label displays correctly."""
+    campaign = Campaign()
+    campaign.id = "test-id"
+    campaign.name = "Test"
+    campaign.description = ""
+    campaign.objective_scope = "multi"
+    campaign.multi_objective_strategy = "pareto"
+    campaign.surrogate_model = "gp"
+    campaign.acquisition_function = "ei"
+
+    panel = SettingsPanel(campaign, workspace_path="test_workspace")
+    qtbot.addWidget(panel)
+
+    label_texts = [label.text() for label in panel.findChildren(QLabel)]
+    assert "Multi Objective, Pareto (Frontier)" in label_texts
+
+
+def test_panel_multi_objective_desirability_display(qtbot):
+    """Test that multi objective desirability strategy label displays correctly."""
+    campaign = Campaign()
+    campaign.id = "test-id"
+    campaign.name = "Test"
+    campaign.description = ""
+    campaign.objective_scope = "multi"
+    campaign.multi_objective_strategy = "desirability"
+    campaign.surrogate_model = "gp"
+    campaign.acquisition_function = "ei"
+
+    panel = SettingsPanel(campaign, workspace_path="test_workspace")
+    qtbot.addWidget(panel)
+
+    label_texts = [label.text() for label in panel.findChildren(QLabel)]
+    assert "Multi Objective, Desirability (Weighted)" in label_texts
+
+
+def test_panel_unknown_objective_scope_display(qtbot):
+    """Test that unknown objective scope shows 'Unknown' label."""
+    campaign = Campaign()
+    campaign.id = "test-id"
+    campaign.name = "Test"
+    campaign.description = ""
+    campaign.objective_scope = "something_unexpected"
+    campaign.multi_objective_strategy = None
+    campaign.surrogate_model = "gp"
+    campaign.acquisition_function = "ei"
+
+    panel = SettingsPanel(campaign, workspace_path="test_workspace")
+    qtbot.addWidget(panel)
+
+    label_texts = [label.text() for label in panel.findChildren(QLabel)]
+    assert "Unknown" in label_texts
