@@ -2,10 +2,33 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 
-class TargetMode(Enum):
-    MIN = "Min"
-    MAX = "Max"
-    MATCH = "Match"
+class TargetMode(str, Enum):
+    """
+    Target optimization mode.
+
+    Attributes:
+        display_name (str): The human-readable name for the target mode
+    """
+
+    if TYPE_CHECKING:
+        display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.display_name = display_name
+        return member
+
+    @classmethod
+    def get_display_name(cls, value: str) -> str:
+        for member in cls:
+            if member.value == value:
+                return member.display_name
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+    MIN = ("Min", "Minimize")
+    MAX = ("Max", "Maximize")
+    MATCH = ("Match", "Match")
 
 
 class TargetTransformation(Enum):
@@ -14,6 +37,62 @@ class TargetTransformation(Enum):
     BELL = "Bell"
     TRIANGULAR = "Triangular"
     NONE = "None"
+
+
+class ObjectiveScope(str, Enum):
+    """
+    Objective scope selection for optimization.
+
+    Attributes:
+       display_name (str): The human-readable name for the objective scope
+    """
+
+    if TYPE_CHECKING:
+        display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.display_name = display_name
+        return member
+
+    @classmethod
+    def get_display_name(cls, value: str) -> str:
+        for member in cls:
+            if member.value == value:
+                return member.display_name
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+    SINGLE = ("single", "Single Objective")
+    MULTI = ("multi", "Multi Objective")
+
+
+class MultiObjectiveStrategy(str, Enum):
+    """
+    Strategy for multi-objective optimization.
+
+    Attributes:
+       display_name (str): The human-readable name for the strategy
+    """
+
+    if TYPE_CHECKING:
+        display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.display_name = display_name
+        return member
+
+    @classmethod
+    def get_display_name(cls, value: str) -> str:
+        for member in cls:
+            if member.value == value:
+                return member.display_name
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+    DESIRABILITY = ("desirability", "Desirability (Weighted)")
+    PARETO = ("pareto", "Pareto (Frontier)")
 
 
 class BOSurrogateModel(str, Enum):
@@ -103,11 +182,14 @@ class BOAcquisitionFunction(str, Enum):
     QEI = ("qEI", "q-EI (Expected Improvement)")
     QLOGEI = ("qLogEI", "q-LogEI (Log Expected Improvement)")
     QNEI = ("qNEI", "q-NEI (Noisy Expected Improvement)")
-    QLOGNEI = ("qLogNEI", "q-LogNEI (Log Noisy Expected Improvement)")
-    QEHVI = ("qEHVI", "q-EHVI (Expected Hypervolume Improvement)")
-    QNEHVI = ("qNEHVI", "q-NEHVI (Noisy Expected Hypervolume Improvement)")
     QUCB = ("qUCB", "q-UCB (Upper Confidence Bound)")
     QTS = ("qTS", "q-TS (Thompson Sampling)")
+    QLOGNEI = ("qLogNEI", "q-LogNEI (Log Noisy Expected Improvement)")
+    QNEHVI = ("qNEHVI", "q-NEHVI (Noisy Expected Hypervolume Improvement)")
+    QLOGNEHVI = ("qLogNEHVI", "q-LogNEHVI (Log Noisy Expected Hypervolume Improvement)")
+    QEHVI = ("qEHVI", "q-EHVI (Expected Hypervolume Improvement)")
+    QLOGEHVI = ("qLogEHVI", "q-LogEHVI (Log Expected Hypervolume Improvement)")
+    QLOGNPAREGO = ("qLogNParEGO", "q-LogNParEGO (Log Noisy ParEGO)")
     RANDOM = ("Random", "Random")
 
 

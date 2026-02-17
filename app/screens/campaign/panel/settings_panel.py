@@ -6,7 +6,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit, QVBoxLayout, QWidget
 
 from app.core.base import BaseWidget
-from app.models.enums import BOAcquisitionFunction, BOSurrogateModel
+from app.models.enums import BOAcquisitionFunction, BOSurrogateModel, MultiObjectiveStrategy, ObjectiveScope
 from app.screens.start.components.campaign_loader import CampaignLoader
 from app.shared.components.buttons import DangerButton, PrimaryButton
 from app.shared.components.dialogs import ConfirmationDialog, ErrorDialog, InfoDialog
@@ -24,12 +24,24 @@ class SettingsPanel(BaseWidget):
     data_exported = Signal()
     home_requested = Signal()
 
+    # Labels
     PANEL_TITLE = "Campaign Settings"
+    CAMPAIGN_ID_LABEL = "Campaign ID"
     NAME_LABEL = "Campaign name"
     DESCRIPTION_LABEL = "Description"
+    OPTIMIZATION_STRATEGY_LABEL = "Optimization Strategy"
+    SURROGATE_MODEL_LABEL = "Surrogate Model"
+    ACQUISITION_FUNCTION_LABEL = "Acquisition Function"
+
+    # Placeholders
     NAME_PLACEHOLDER = "Enter campaign name"
     DESCRIPTION_PLACEHOLDER = "Description of the Campaign"
 
+    # Fallback display values
+    NO_VALUE = "N/A"
+    UNKNOWN_STRATEGY = "Unknown"
+
+    # Button texts
     RENAME_BUTTON_TEXT = "Rename"
     SAVE_BUTTON_TEXT = "Save"
     EDIT_BUTTON_TEXT = "Edit"
@@ -63,10 +75,22 @@ class SettingsPanel(BaseWidget):
         "This action cannot be undone."
     )
 
+    # Object names
+    OBJECT_NAME_PANEL_TITLE = "PanelTitle"
+    OBJECT_NAME_FORM_LABEL = "FormLabel"
+    OBJECT_NAME_FORM_INPUT = "FormInput"
+
+    # Styles
+    PANEL_TITLE_STYLE = "font-size: 18px; font-weight: bold; margin-bottom: 10px;"
+
+    # Layout
     MAIN_MARGINS = (30, 30, 30, 30)
+    MAIN_LAYOUT_SPACING = 25
     FORM_SPACING = 20
     BUTTON_SECTION_SPACING = 20
     DESCRIPTION_HEIGHT = 100
+    RENAME_BUTTON_WIDTH = 120
+    EDIT_BUTTON_WIDTH = 100
 
     def __init__(self, campaign=None, workspace_path=None, parent=None):
         self.campaign = campaign
@@ -79,15 +103,13 @@ class SettingsPanel(BaseWidget):
         """Setup the settings panel UI."""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(*self.MAIN_MARGINS)
-        main_layout.setSpacing(25)
+        main_layout.setSpacing(self.MAIN_LAYOUT_SPACING)
 
-        # Panel title
         title_label = QLabel(self.PANEL_TITLE)
-        title_label.setObjectName("PanelTitle")
-        title_label.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 10px;")
+        title_label.setObjectName(self.OBJECT_NAME_PANEL_TITLE)
+        title_label.setStyleSheet(self.PANEL_TITLE_STYLE)
         main_layout.addWidget(title_label)
 
-        # Form section
         form_widget = self._create_form_section()
         main_layout.addWidget(form_widget)
 
@@ -101,30 +123,42 @@ class SettingsPanel(BaseWidget):
         form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form_layout.setSpacing(self.FORM_SPACING)
 
-        # Campaign ID section (read-only)
-        id_label = QLabel("Campaign ID")
-        id_label.setObjectName("FormLabel")
-        form_layout.addRow(id_label, QLabel(self.campaign.id if self.campaign else "N/A"))
+        id_label = QLabel(self.CAMPAIGN_ID_LABEL)
+        id_label.setObjectName(self.OBJECT_NAME_FORM_LABEL)
+        form_layout.addRow(id_label, QLabel(self.campaign.id if self.campaign else self.NO_VALUE))
 
-        # Campaign name section
         name_section = self._create_name_section()
         name_label = QLabel(self.NAME_LABEL)
-        name_label.setObjectName("FormLabel")
+        name_label.setObjectName(self.OBJECT_NAME_FORM_LABEL)
         form_layout.addRow(name_label, name_section)
 
         description_section = self._create_description_section()
         desc_label = QLabel(self.DESCRIPTION_LABEL)
-        desc_label.setObjectName("FormLabel")
+        desc_label.setObjectName(self.OBJECT_NAME_FORM_LABEL)
         form_layout.addRow(desc_label, description_section)
 
         if self.campaign:
-            surrogate_label = QLabel("Surrogate Model")
-            surrogate_label.setObjectName("FormLabel")
+            optimization_strategy = self.UNKNOWN_STRATEGY
+            if self.campaign.objective_scope == ObjectiveScope.SINGLE:
+                optimization_strategy = ObjectiveScope.SINGLE.display_name
+            elif self.campaign.objective_scope == ObjectiveScope.MULTI and self.campaign.multi_objective_strategy:
+                optimization_strategy = (
+                    ObjectiveScope.MULTI.display_name
+                    + ", "
+                    + MultiObjectiveStrategy.get_display_name(self.campaign.multi_objective_strategy)
+                )
+
+            optimization_strategy_label = QLabel(self.OPTIMIZATION_STRATEGY_LABEL)
+            optimization_strategy_label.setObjectName(self.OBJECT_NAME_FORM_LABEL)
+            form_layout.addRow(optimization_strategy_label, QLabel(optimization_strategy))
+
+            surrogate_label = QLabel(self.SURROGATE_MODEL_LABEL)
+            surrogate_label.setObjectName(self.OBJECT_NAME_FORM_LABEL)
             surrogate_value = self._get_enum_display_name(BOSurrogateModel, self.campaign.surrogate_model)
             form_layout.addRow(surrogate_label, QLabel(surrogate_value))
 
-            acquisition_label = QLabel("Acquisition Function")
-            acquisition_label.setObjectName("FormLabel")
+            acquisition_label = QLabel(self.ACQUISITION_FUNCTION_LABEL)
+            acquisition_label.setObjectName(self.OBJECT_NAME_FORM_LABEL)
             acquisition_value = self._get_enum_display_name(BOAcquisitionFunction, self.campaign.acquisition_function)
             form_layout.addRow(acquisition_label, QLabel(acquisition_value))
 
@@ -139,12 +173,12 @@ class SettingsPanel(BaseWidget):
 
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText(self.NAME_PLACEHOLDER)
-        self.name_input.setObjectName("FormInput")
+        self.name_input.setObjectName(self.OBJECT_NAME_FORM_INPUT)
         self.name_input.setReadOnly(True)
         layout.addWidget(self.name_input)
 
         self.rename_button = PrimaryButton(self.RENAME_BUTTON_TEXT)
-        self.rename_button.setFixedWidth(120)
+        self.rename_button.setFixedWidth(self.RENAME_BUTTON_WIDTH)
         self.rename_button.clicked.connect(self._handle_rename_click)
         layout.addWidget(self.rename_button)
 
@@ -160,14 +194,14 @@ class SettingsPanel(BaseWidget):
         self.description_input = QTextEdit()
         self.description_input.setPlaceholderText(self.DESCRIPTION_PLACEHOLDER)
         self.description_input.setFixedHeight(self.DESCRIPTION_HEIGHT)
-        self.description_input.setObjectName("FormInput")
+        self.description_input.setObjectName(self.OBJECT_NAME_FORM_INPUT)
         self.description_input.setReadOnly(True)
         layout.addWidget(self.description_input)
 
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         self.edit_button = PrimaryButton(self.EDIT_BUTTON_TEXT)
-        self.edit_button.setFixedWidth(100)
+        self.edit_button.setFixedWidth(self.EDIT_BUTTON_WIDTH)
         self.edit_button.clicked.connect(self._handle_edit_click)
         button_layout.addWidget(self.edit_button)
         layout.addLayout(button_layout)
@@ -254,7 +288,6 @@ class SettingsPanel(BaseWidget):
                     InfoDialog.show_info(
                         self.CAMPAIGN_DELETED_TITLE, self.DELETE_SUCCESS_MESSAGE.format(campaign_name), parent=self
                     )
-                    # Emit signal to return to home screen
                     self.campaign_deleted.emit()
                 else:
                     ErrorDialog.show_error(
@@ -293,7 +326,6 @@ class SettingsPanel(BaseWidget):
                     self.campaign_loader.delete_campaign(self.campaign)
                 except Exception as e:
                     self.logger.error(f"Failed to remove campaign from loader: {e}")
-                    # Don't set success to False here as the files might still be deleted
             return success
 
         except Exception as e:

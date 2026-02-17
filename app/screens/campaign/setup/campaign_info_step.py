@@ -18,7 +18,14 @@ from PySide6.QtWidgets import (
 
 from app.core.base import BaseStep
 from app.models.campaign import Campaign, Target
-from app.models.enums import BOAcquisitionFunction, BOSurrogateModel, TargetMode, TargetTransformation
+from app.models.enums import (
+    BOAcquisitionFunction,
+    BOSurrogateModel,
+    MultiObjectiveStrategy,
+    ObjectiveScope,
+    TargetMode,
+    TargetTransformation,
+)
 from app.shared.components.buttons import DangerButton, PrimaryButton
 from app.shared.components.dialogs import ErrorDialog
 from app.shared.components.headers import MainHeader, SectionHeader
@@ -147,6 +154,10 @@ class TargetRow(QWidget):
 
         return self.target
 
+    def set_weight_visible(self, visible: bool) -> None:
+        """Show or hide the weight input for this row."""
+        self.weight_input.setVisible(visible)
+
     def is_valid(self) -> bool:
         """Check if this target row has valid data."""
         if not self.name_input.text().strip():
@@ -237,11 +248,20 @@ class CampaignInfoStep(BaseStep):
     NAME_PLACEHOLDER = "Enter campaign name"
     DESCRIPTION_LABEL = "Description:"
     DESCRIPTION_PLACEHOLDER = "Enter campaign description"
+    OBJECTIVE_SCOPE_LABEL = "Objective Type:"
+    MULTI_OBJECTIVE_STRATEGY_LABEL = "Multi-Objective Strategy:"
     TARGETS_LABEL = "Targets/Objectives:"
     ADD_TARGET_BUTTON_TEXT = "Add Another Target"
     ADD_TARGET_BUTTON_TOOLTIP = "Add a new target to the campaign"
     SURROGATE_MODEL_LABEL = "Surrogate Model:"
     ACQUISITION_FUNCTION_LABEL = "Acquisition Function:"
+    PARETO_ACQUISITION_FUNCTIONS = {
+        BOAcquisitionFunction.QNEHVI.value,
+        BOAcquisitionFunction.QLOGNEHVI.value,
+        BOAcquisitionFunction.QEHVI.value,
+        BOAcquisitionFunction.QLOGEHVI.value,
+        BOAcquisitionFunction.QLOGNPAREGO.value,
+    }
 
     # Object Name Constants
     FORM_INPUT_OBJECT_NAME = "FormInput"
@@ -255,6 +275,8 @@ class CampaignInfoStep(BaseStep):
     MAX_VALUE_TARGET_MESSAGE = "Max value must be a number."
     WEIGHT_TARGET_MESSAGE = "Weight must be a number."
     TARGET_NAME_REQUIRED_MESSAGE = "At least one target must have a name"
+    SINGLE_TARGET_REQUIRED_MESSAGE = "Single-objective optimization requires exactly one target."
+    MULTI_TARGET_MINIMUM_MESSAGE = "Multi-objective optimization requires at least two targets."
     MULTI_TARGET_BOUNDS_REQUIRED_MESSAGE = "Bounds (min/max values) are required for multi-target campaigns."
     MULTI_TARGET_WEIGHT_REQUIRED_MESSAGE = "Weights are required for multi-target campaigns."
     INVALID_BOUNDS_MESSAGE = "Min value must be less than max value for target: {}"
@@ -267,9 +289,9 @@ class CampaignInfoStep(BaseStep):
     DESCRIPTION_HEIGHT = 100
 
     def __init__(self, wizard_data: Campaign, parent=None):
+        self.target_rows: list[TargetRow] = []
         super().__init__(wizard_data, parent)
         self.campaign: Campaign = self.wizard_data
-        self.target_rows: list[TargetRow] = []
 
     def _setup_widget(self):
         """Setup the campaign info step UI."""
@@ -281,11 +303,25 @@ class CampaignInfoStep(BaseStep):
         title = MainHeader(self.TITLE)
         main_layout.addWidget(title)
 
-        # Form
-        self._create_form(main_layout)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setFrameShape(QScrollArea.NoFrame)
+        scroll_area.setObjectName("CampaignInfoScrollArea")
 
-        # Add stretch
-        main_layout.addStretch()
+        scroll_container = QWidget()
+        scroll_container.setObjectName("CampaignInfoScrollContainer")
+        scroll_layout = QVBoxLayout(scroll_container)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(self.MAIN_SPACING)
+
+        # Form
+        self._create_form(scroll_layout)
+
+        scroll_layout.addStretch()
+        scroll_area.setWidget(scroll_container)
+        main_layout.addWidget(scroll_area)
 
     def _create_form(self, parent_layout):
         """Create form with all input fields."""
@@ -311,6 +347,9 @@ class CampaignInfoStep(BaseStep):
         desc_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
         form_layout.addRow(desc_label, self.description_input)
 
+        # Objective selection
+        self._create_objective_selection(form_layout)
+
         # Target section
         self._create_targets_section(form_layout)
 
@@ -326,11 +365,35 @@ class CampaignInfoStep(BaseStep):
         # Acquisition function section
         self.acquisition_combo = QComboBox()
         self.acquisition_combo.setObjectName("FormInput")
-        for func in BOAcquisitionFunction:
-            self.acquisition_combo.addItem(func.display_name, func.value)
+        self._refresh_acquisition_functions()
         acquisition_label = SectionHeader(self.ACQUISITION_FUNCTION_LABEL)
         acquisition_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
         form_layout.addRow(acquisition_label, self.acquisition_combo)
+
+    def _create_objective_selection(self, form_layout):
+        """Create objective scope and strategy selection controls."""
+        self.objective_scope_combo = QComboBox()
+        self.objective_scope_combo.setObjectName(self.FORM_INPUT_OBJECT_NAME)
+        for scope in ObjectiveScope:
+            self.objective_scope_combo.addItem(scope.display_name, scope.value)
+
+        objective_scope_label = SectionHeader(self.OBJECTIVE_SCOPE_LABEL)
+        objective_scope_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
+        form_layout.addRow(objective_scope_label, self.objective_scope_combo)
+
+        self.multi_objective_combo = QComboBox()
+        self.multi_objective_combo.setObjectName(self.FORM_INPUT_OBJECT_NAME)
+        for strategy in MultiObjectiveStrategy:
+            self.multi_objective_combo.addItem(strategy.display_name, strategy.value)
+
+        self.multi_objective_label = SectionHeader(self.MULTI_OBJECTIVE_STRATEGY_LABEL)
+        self.multi_objective_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
+        form_layout.addRow(self.multi_objective_label, self.multi_objective_combo)
+
+        self.objective_scope_combo.currentIndexChanged.connect(self._handle_objective_scope_changed)
+        self.multi_objective_combo.currentIndexChanged.connect(self._handle_multi_objective_changed)
+
+        self._apply_objective_selection()
 
     def _create_targets_section(self, form_layout):
         """Create targets configuration section."""
@@ -353,13 +416,6 @@ class CampaignInfoStep(BaseStep):
         self.targets_container = QWidget()
         self.targets_layout = QVBoxLayout(self.targets_container)
         self.targets_container.setObjectName("TargetsContainer")
-        self.targets_container.setStyleSheet("""
-            QWidget#TargetsContainer {
-                background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 0px;
-            }
-        """)
         # self.targets_layout = QVBoxLayout(self.targets_container)
         self.targets_layout.setContentsMargins(10, 10, 10, 10)
         self.targets_layout.setSpacing(5)
@@ -380,6 +436,88 @@ class CampaignInfoStep(BaseStep):
         targets_label.setObjectName(self.FORM_LABEL_OBJECT_NAME)
         form_layout.addRow(targets_label, targets_widget)
 
+    def _handle_objective_scope_changed(self):
+        """Update UI when objective scope changes."""
+        self._apply_objective_selection()
+
+    def _handle_multi_objective_changed(self):
+        """Update UI when multi-objective strategy changes."""
+        self._apply_objective_selection()
+
+    def _apply_objective_selection(self):
+        """Apply objective scope/strategy selections to the UI."""
+        scope = self._get_objective_scope()
+        is_multi = scope == ObjectiveScope.MULTI.value
+
+        self.multi_objective_label.setVisible(is_multi)
+        self.multi_objective_combo.setVisible(is_multi)
+
+        if hasattr(self, "add_target_btn"):
+            if is_multi:
+                self.add_target_btn.setVisible(True)
+            else:
+                self.add_target_btn.setVisible(False)
+                self._ensure_single_target_row()
+
+        strategy = self._get_multi_objective_strategy()
+        show_weights = is_multi and strategy == MultiObjectiveStrategy.DESIRABILITY.value
+        self._set_weight_column_visible(show_weights)
+        self._update_remove_buttons()
+        if hasattr(self, "acquisition_combo"):
+            self._refresh_acquisition_functions()
+
+    def _get_objective_scope(self) -> str:
+        """Get the selected objective scope value."""
+        return self.objective_scope_combo.currentData() or ObjectiveScope.SINGLE.value
+
+    def _get_multi_objective_strategy(self) -> str:
+        """Get the selected multi-objective strategy value."""
+        return self.multi_objective_combo.currentData() or MultiObjectiveStrategy.DESIRABILITY.value
+
+    def _ensure_single_target_row(self):
+        """Ensure exactly one target row exists."""
+        if not self.target_rows:
+            self._add_target_row()
+            return
+
+        while len(self.target_rows) > 1:
+            self._remove_target_row(self.target_rows[-1])
+
+    def _set_weight_column_visible(self, visible: bool):
+        """Show or hide weight column and inputs."""
+        if hasattr(self, "targets_header_labels") and len(self.targets_header_labels) > 5:
+            self.targets_header_labels[5].setVisible(visible)
+        for row in self.target_rows:
+            row.set_weight_visible(visible)
+
+    def _get_supported_acquisition_functions(self) -> list[BOAcquisitionFunction]:
+        """Get the supported acquisition functions for the current objective selection."""
+        if (
+            self._get_objective_scope() == ObjectiveScope.MULTI.value
+            and self._get_multi_objective_strategy() == MultiObjectiveStrategy.PARETO.value
+        ):
+            return [func for func in BOAcquisitionFunction if func.value in self.PARETO_ACQUISITION_FUNCTIONS]
+
+        return [func for func in BOAcquisitionFunction if func.value not in self.PARETO_ACQUISITION_FUNCTIONS]
+
+    def _refresh_acquisition_functions(self, preferred_value: str | None = None) -> None:
+        """Refresh acquisition function options based on objective selection."""
+        current_value = preferred_value or self.acquisition_combo.currentData()
+        supported = self._get_supported_acquisition_functions()
+
+        self.acquisition_combo.blockSignals(True)
+        self.acquisition_combo.clear()
+        for func in supported:
+            self.acquisition_combo.addItem(func.display_name, func.value)
+
+        if current_value:
+            self._set_combo_value(self.acquisition_combo, current_value)
+
+        if self.acquisition_combo.currentIndex() < 0 and self.acquisition_combo.count() > 0:
+            self.acquisition_combo.setCurrentIndex(0)
+
+        self.acquisition_combo.blockSignals(False)
+
     def _add_targets_header(self):
         """Add header row for targets table."""
         header_widget = QWidget()
@@ -389,12 +527,15 @@ class CampaignInfoStep(BaseStep):
 
         headers = ["Name", "Mode", "Min", "Max", "Transform", "Weight", ""]
 
+        self.targets_header_labels = []
+
         for header in headers:
             label = QLabel(header)
             label.setStyleSheet("font-weight: bold; color: #666; font-size: 11px;")
             label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             header_layout.addWidget(label)
+            self.targets_header_labels.append(label)
 
         for idx, stretch in enumerate(COLUMN_STRETCH):
             header_layout.setStretch(idx, stretch)
@@ -411,6 +552,11 @@ class CampaignInfoStep(BaseStep):
             target = Target()
 
         target_row = TargetRow(target, self._remove_target_row)
+        show_weights = (
+            self._get_objective_scope() == ObjectiveScope.MULTI.value
+            and self._get_multi_objective_strategy() == MultiObjectiveStrategy.DESIRABILITY.value
+        )
+        target_row.set_weight_visible(show_weights)
         self.target_rows.append(target_row)
         self.targets_layout.addWidget(target_row)
 
@@ -427,7 +573,10 @@ class CampaignInfoStep(BaseStep):
 
     def _update_remove_buttons(self):
         """Update remove button visibility based on number of targets."""
-        show_remove = len(self.target_rows) > 1
+        if self._get_objective_scope() == ObjectiveScope.SINGLE.value:
+            show_remove = False
+        else:
+            show_remove = len(self.target_rows) > 1
         for row in self.target_rows:
             row.remove_btn.setVisible(show_remove)
 
@@ -462,28 +611,41 @@ class CampaignInfoStep(BaseStep):
             ErrorDialog.show_error(self.VALIDATION_ERROR_TITLE, self.TARGET_NAME_REQUIRED_MESSAGE, parent=self)
             return False
 
-        if len(valid_targets) > 1:
-            multi_target_errors = []
+        scope = self._get_objective_scope()
+        strategy = self._get_multi_objective_strategy()
 
-            for i, row in enumerate(valid_targets, 1):
-                target_data = row.get_target_data()
-
-                # Bounds are required for multi-target
-                if target_data.min_value is None or target_data.max_value is None:
-                    multi_target_errors.append(
-                        f"Target {i} ({target_data.name}): {self.MULTI_TARGET_BOUNDS_REQUIRED_MESSAGE}"
-                    )
-
-                # Weights are required for multi-target
-                if target_data.weight is None:
-                    multi_target_errors.append(
-                        f"Target {i} ({target_data.name}): {self.MULTI_TARGET_WEIGHT_REQUIRED_MESSAGE}"
-                    )
-
-            if multi_target_errors:
-                error_message = "Multi-target validation errors:\n\n" + "\n".join(multi_target_errors)
-                ErrorDialog.show_error(self.VALIDATION_ERROR_TITLE, error_message, parent=self)
+        if scope == ObjectiveScope.SINGLE.value:
+            if len(valid_targets) != 1:
+                ErrorDialog.show_error(self.VALIDATION_ERROR_TITLE, self.SINGLE_TARGET_REQUIRED_MESSAGE, parent=self)
                 return False
+
+        if scope == ObjectiveScope.MULTI.value:
+            if len(valid_targets) < 2:
+                ErrorDialog.show_error(self.VALIDATION_ERROR_TITLE, self.MULTI_TARGET_MINIMUM_MESSAGE, parent=self)
+                return False
+
+            if strategy == MultiObjectiveStrategy.DESIRABILITY.value:
+                multi_target_errors = []
+
+                for i, row in enumerate(valid_targets, 1):
+                    target_data = row.get_target_data()
+
+                    # Bounds are required for desirability multi-target
+                    if target_data.min_value is None or target_data.max_value is None:
+                        multi_target_errors.append(
+                            f"Target {i} ({target_data.name}): {self.MULTI_TARGET_BOUNDS_REQUIRED_MESSAGE}"
+                        )
+
+                    # Weights are required for desirability multi-target
+                    if target_data.weight is None:
+                        multi_target_errors.append(
+                            f"Target {i} ({target_data.name}): {self.MULTI_TARGET_WEIGHT_REQUIRED_MESSAGE}"
+                        )
+
+                if multi_target_errors:
+                    error_message = "Multi-target validation errors:\n\n" + "\n".join(multi_target_errors)
+                    ErrorDialog.show_error(self.VALIDATION_ERROR_TITLE, error_message, parent=self)
+                    return False
 
         return True
 
@@ -491,6 +653,12 @@ class CampaignInfoStep(BaseStep):
         """Save form data to shared data."""
         self.campaign.name = self.name_input.text().strip()
         self.campaign.description = self.description_input.toPlainText().strip()
+        self.campaign.objective_scope = self._get_objective_scope()
+        self.campaign.multi_objective_strategy = self._get_multi_objective_strategy()
+        self.campaign.surrogate_model = self.surrogate_combo.currentData() or self.surrogate_combo.currentText()
+        self.campaign.acquisition_function = (
+            self.acquisition_combo.currentData() or self.acquisition_combo.currentText()
+        )
 
         self.campaign.targets = []
         for row in self.target_rows:
@@ -501,6 +669,12 @@ class CampaignInfoStep(BaseStep):
         """Load data from shared data into form."""
         self.name_input.setText(self.campaign.name)
         self.description_input.setPlainText(self.campaign.description)
+
+        self._resolve_objective_defaults()
+        self._set_combo_value(self.objective_scope_combo, self.campaign.objective_scope)
+        self._set_combo_value(self.multi_objective_combo, self.campaign.multi_objective_strategy)
+        self._set_combo_value(self.surrogate_combo, self.campaign.surrogate_model)
+        self._refresh_acquisition_functions(preferred_value=self.campaign.acquisition_function)
 
         # Clear existing target rows
         for row in self.target_rows[:]:
@@ -513,11 +687,39 @@ class CampaignInfoStep(BaseStep):
         else:
             self._add_target_row()
 
+        self._apply_objective_selection()
+
     def reset(self):
         """Reset form to initial state."""
         self.name_input.clear()
         self.description_input.clear()
 
+        self._set_combo_value(self.objective_scope_combo, ObjectiveScope.SINGLE.value)
+        self._set_combo_value(self.multi_objective_combo, MultiObjectiveStrategy.DESIRABILITY.value)
+        self._set_combo_value(self.surrogate_combo, BOSurrogateModel.GAUSSIAN_PROCESS_DEFAULT.value)
+        self._refresh_acquisition_functions(preferred_value=BOAcquisitionFunction.QLOGEI.value)
+
         for row in self.target_rows[:]:
             self._remove_target_row(row)
         self._add_target_row()
+        self._apply_objective_selection()
+
+    def _set_combo_value(self, combo: QComboBox, value: str) -> None:
+        """Set a combo box current index based on item data value."""
+        index = combo.findData(value)
+        if index >= 0:
+            combo.setCurrentIndex(index)
+
+    def _resolve_objective_defaults(self) -> None:
+        """Ensure objective scope/strategy are consistent with current targets."""
+        if not self.campaign.objective_scope:
+            self.campaign.objective_scope = ObjectiveScope.SINGLE.value
+
+        if len(self.campaign.targets) > 1:
+            self.campaign.objective_scope = ObjectiveScope.MULTI.value
+
+        if self.campaign.objective_scope == ObjectiveScope.MULTI.value and not self.campaign.multi_objective_strategy:
+            self.campaign.multi_objective_strategy = MultiObjectiveStrategy.DESIRABILITY.value
+
+        if len(self.campaign.targets) <= 1 and self.campaign.objective_scope == ObjectiveScope.MULTI.value:
+            self.campaign.objective_scope = ObjectiveScope.SINGLE.value

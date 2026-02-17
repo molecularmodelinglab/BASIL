@@ -5,7 +5,6 @@ BayBe integration service for experiment generation and optimization.
 import contextlib
 import logging
 import random
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -202,17 +201,27 @@ class BayBeIntegrationService:
         search_space = ParameterConverter.create_search_space(self.campaign.parameters)
         self.logger.info(f"Created search space with {len(search_space.parameters)} parameters")
 
-        objective = ObjectiveConverter.create_objective(self.campaign.targets)
+        objective = ObjectiveConverter.create_objective(
+            self.campaign.targets,
+            objective_scope=self.campaign.objective_scope,
+            multi_objective_strategy=self.campaign.multi_objective_strategy,
+        )
 
         if len(self.campaign.targets) == 1:
             self.logger.info(f"Created single-target objective: {self.campaign.targets[0].name}")
         else:
-            self.logger.info(f"Created desirability objective with {len(self.campaign.targets)} targets")
-            weights = ObjectiveConverter.calculate_desirability_weights(self.campaign.targets)
-            for target_name, weight in weights.items():
-                self.logger.info(f"  - {target_name}: {weight:.3f} weight ({weight * 100:.1f}%)")
+            if self.campaign.multi_objective_strategy == "pareto":
+                self.logger.info(f"Created Pareto objective with {len(self.campaign.targets)} targets")
+            else:
+                self.logger.info(f"Created desirability objective with {len(self.campaign.targets)} targets")
+                weights = ObjectiveConverter.calculate_desirability_weights(self.campaign.targets)
+                for target_name, weight in weights.items():
+                    self.logger.info(f"  - {target_name}: {weight:.3f} weight ({weight * 100:.1f}%)")
 
-        multi_obj_note = ObjectiveConverter.create_multi_objective_note(self.campaign.targets)
+        multi_obj_note = ObjectiveConverter.create_multi_objective_note(
+            self.campaign.targets,
+            multi_objective_strategy=self.campaign.multi_objective_strategy,
+        )
         if multi_obj_note:
             self.logger.info(multi_obj_note)
 
@@ -266,7 +275,11 @@ class BayBeIntegrationService:
             if valid_params == 0:
                 errors.append("No valid parameters for optimization")
 
-        target_errors = ObjectiveConverter.validate_targets(self.campaign.targets)
+        target_errors = ObjectiveConverter.validate_targets(
+            self.campaign.targets,
+            objective_scope=self.campaign.objective_scope,
+            multi_objective_strategy=self.campaign.multi_objective_strategy,
+        )
         errors.extend(target_errors)
 
         return errors
@@ -320,14 +333,6 @@ class BayBeIntegrationService:
         """Get the path to the BayBe log file."""
         return self.campaign_folder / self.LOG_FOLDERNAME / self.LOG_FILENAME
 
-    def get_last_log_update_time(self) -> Optional[datetime]:
-        """Get the last modification time of the log file."""
-        log_file = self.get_log_file_path()
-        if log_file.exists():
-            timestamp = log_file.stat().st_mtime
-            return datetime.fromtimestamp(timestamp)
-        return None
-
     def get_campaign_info(self) -> Dict[str, Any]:
         """
         Get information about the BayBE campaign status.
@@ -369,6 +374,9 @@ class BayBeIntegrationService:
             Dictionary with desirability information, or None if single-objective
         """
         if len(self.campaign.targets) <= 1:
+            return None
+
+        if self.campaign.multi_objective_strategy != "desirability":
             return None
 
         weights = ObjectiveConverter.calculate_desirability_weights(self.campaign.targets)

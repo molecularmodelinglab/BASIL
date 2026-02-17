@@ -188,6 +188,26 @@ def get_card_styles() -> str:
 def get_form_styles() -> str:
     """Get form component styles."""
     return f"""
+        /* Campaign Info Scroll Area */
+        QScrollArea#CampaignInfoScrollArea {{
+            background-color: transparent;
+            border: none;
+        }}
+        QScrollArea#CampaignInfoScrollArea > QWidget > QWidget#CampaignInfoScrollContainer {{
+            background-color: transparent;
+        }}
+
+        /* Targets Section */
+        QScrollArea#TargetsScrollArea {{
+            background-color: transparent;
+            border: none;
+        }}
+        QWidget#TargetsContainer {{
+            background-color: {COLORS["white"]};
+            border: 1px solid {COLORS["gray_200"]};
+            border-radius: {RADIUS["base"]};
+        }}
+
         /* Form Input */
         QLineEdit {{
             padding: {SPACING["base"]};

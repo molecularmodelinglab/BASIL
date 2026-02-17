@@ -6,10 +6,11 @@ This module handles the conversion between BASIL targets and BayBE objectives.
 
 from typing import Dict, List, Optional
 
-from baybe.objectives import DesirabilityObjective, SingleTargetObjective
+from baybe.objectives import DesirabilityObjective, ParetoObjective, SingleTargetObjective
 from baybe.targets import NumericalTarget
 
 from app.models.campaign import Target
+from app.models.enums import MultiObjectiveStrategy, ObjectiveScope
 
 
 class ObjectiveConverter:
@@ -63,12 +64,16 @@ class ObjectiveConverter:
             )
 
     @staticmethod
-    def create_objective(basil_targets: List[Target]):
+    def create_objective(
+        basil_targets: List[Target],
+        objective_scope: Optional[str] = None,
+        multi_objective_strategy: Optional[str] = None,
+    ):
         """
         Create a BayBE objective from BASIL targets.
 
         For single targets, creates a SingleTargetObjective.
-        For multiple targets, creates a DesirabilityObjective that combines all targets.
+        For multiple targets, creates a DesirabilityObjective or ParetoObjective based on strategy.
 
         Args:
             basil_targets: List of BASIL targets
@@ -82,11 +87,25 @@ class ObjectiveConverter:
         if not basil_targets:
             raise ValueError("No targets provided for optimization")
 
-        if len(basil_targets) == 1:
+        resolved_scope = objective_scope or (
+            ObjectiveScope.MULTI.value if len(basil_targets) > 1 else ObjectiveScope.SINGLE.value
+        )
+        resolved_strategy = multi_objective_strategy or MultiObjectiveStrategy.DESIRABILITY.value
+
+        if resolved_scope == ObjectiveScope.SINGLE.value and len(basil_targets) > 1:
+            resolved_scope = ObjectiveScope.MULTI.value
+
+        if resolved_scope == ObjectiveScope.SINGLE.value:
+            if len(basil_targets) != 1:
+                raise ValueError("Single-objective optimization requires exactly one target")
             baybe_target = ObjectiveConverter.convert_target(basil_targets[0])
             return SingleTargetObjective(target=baybe_target)
-        else:
-            return ObjectiveConverter._create_desirability_objective(basil_targets)
+
+        if resolved_strategy == MultiObjectiveStrategy.PARETO.value:
+            baybe_targets = [ObjectiveConverter.convert_target(target) for target in basil_targets]
+            return ParetoObjective(baybe_targets)
+
+        return ObjectiveConverter._create_desirability_objective(basil_targets)
 
     @staticmethod
     def _create_desirability_objective(basil_targets: List[Target]) -> DesirabilityObjective:
@@ -120,7 +139,11 @@ class ObjectiveConverter:
         return DesirabilityObjective(targets=baybe_targets, weights=weights)
 
     @staticmethod
-    def validate_targets(basil_targets: List[Target]) -> List[str]:
+    def validate_targets(
+        basil_targets: List[Target],
+        objective_scope: Optional[str] = None,
+        multi_objective_strategy: Optional[str] = None,
+    ) -> List[str]:
         """
         Validate BASIL targets for BayBE conversion.
 
@@ -136,6 +159,20 @@ class ObjectiveConverter:
             errors.append("At least one target must be specified")
             return errors
 
+        resolved_scope = objective_scope or (
+            ObjectiveScope.MULTI.value if len(basil_targets) > 1 else ObjectiveScope.SINGLE.value
+        )
+        resolved_strategy = multi_objective_strategy or MultiObjectiveStrategy.DESIRABILITY.value
+
+        if resolved_scope == ObjectiveScope.SINGLE.value and len(basil_targets) > 1:
+            resolved_scope = ObjectiveScope.MULTI.value
+
+        if resolved_scope == ObjectiveScope.SINGLE.value and len(basil_targets) != 1:
+            errors.append("Single-objective optimization requires exactly one target")
+
+        if resolved_scope == ObjectiveScope.MULTI.value and len(basil_targets) < 2:
+            errors.append("Multi-objective optimization requires at least two targets")
+
         for i, target in enumerate(basil_targets):
             target_errors = ObjectiveConverter._validate_single_target(target, i)
             errors.extend(target_errors)
@@ -145,6 +182,17 @@ class ObjectiveConverter:
         duplicates = set([name for name in target_names if target_names.count(name) > 1])
         if duplicates:
             errors.append(f"Duplicate target names found: {', '.join(duplicates)}")
+
+        if (
+            resolved_scope == ObjectiveScope.MULTI.value
+            and resolved_strategy == MultiObjectiveStrategy.DESIRABILITY.value
+            and len(basil_targets) > 1
+        ):
+            missing_weights = [t.name or f"Target {i + 1}" for i, t in enumerate(basil_targets) if t.weight is None]
+            if missing_weights:
+                errors.append(
+                    "Desirability optimization requires weights for all targets: " + ", ".join(missing_weights)
+                )
 
         return errors
 
@@ -163,11 +211,9 @@ class ObjectiveConverter:
         errors = []
         target_id = f"Target {index + 1} ({target.name})" if target.name else f"Target {index + 1}"
 
-        # Check target name
         if not target.name or not target.name.strip():
             errors.append(f"{target_id}: Target name cannot be empty")
 
-        # Check mode
         valid_modes = ["MAX", "MIN", "MATCH"]
         if target.mode.upper() not in valid_modes:
             errors.append(f"{target_id}: Invalid mode '{target.mode}'. Must be one of: {', '.join(valid_modes)}")
@@ -204,7 +250,10 @@ class ObjectiveConverter:
         return [target.name for target in basil_targets]
 
     @staticmethod
-    def create_multi_objective_note(targets: List[Target]) -> Optional[str]:
+    def create_multi_objective_note(
+        targets: List[Target],
+        multi_objective_strategy: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Create a note about multi-objective handling.
 
@@ -217,16 +266,25 @@ class ObjectiveConverter:
         if len(targets) <= 1:
             return None
 
+        resolved_strategy = multi_objective_strategy or MultiObjectiveStrategy.DESIRABILITY.value
+
+        if resolved_strategy == MultiObjectiveStrategy.PARETO.value:
+            target_info = ", ".join([f"'{target.name}'" for target in targets])
+            note = "Multi-objective optimization using Pareto frontier. "
+            note += f"Targets: {target_info}. "
+            note += "All targets are optimized simultaneously without explicit weights."
+            return note
+
         total_weight = sum(t.weight if t.weight is not None else 1.0 for t in targets)
-        target_info = []
+        target_information = []
 
         for target in targets:
             weight = target.weight if target.weight is not None else 1.0
             weight_pct = (weight / total_weight) * 100
-            target_info.append(f"'{target.name}' ({weight_pct:.1f}%)")
+            target_information.append(f"'{target.name}' ({weight_pct:.1f}%)")
 
         note = "Multi-objective optimization using desirability function. "
-        note += f"Targets and weights: {', '.join(target_info)}. "
+        note += f"Targets and weights: {', '.join(target_information)}. "
         note += "All targets are simultaneously optimized based on their relative weights."
 
         return note
