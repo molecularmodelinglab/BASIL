@@ -118,13 +118,17 @@ class SettingsPanel(BaseWidget):
         form_layout.addRow(desc_label, description_section)
 
         if self.campaign:
-            if self.campaign.multi_objective_strategy:
-                multi_objective_label = QLabel("Multi-Objective Strategy")
-                multi_objective_label.setObjectName("FormLabel")
-                multi_objective_value = self._get_enum_display_name(
+            optimization_strategy = "Unknown"
+            if self.campaign.objective_scope == "single":
+                optimization_strategy = "Single Objective"
+            elif self.campaign.objective_scope == "multi" and self.campaign.multi_objective_strategy:
+                optimization_strategy = "Multi Objective, " + self._get_enum_display_name(
                     MultiObjectiveStrategy, self.campaign.multi_objective_strategy
                 )
-                form_layout.addRow(multi_objective_label, QLabel(multi_objective_value))
+
+            optimization_strategy_label = QLabel("Optimization Strategy")
+            optimization_strategy_label.setObjectName("FormLabel")
+            form_layout.addRow(optimization_strategy_label, QLabel(optimization_strategy))
 
             surrogate_label = QLabel("Surrogate Model")
             surrogate_label.setObjectName("FormLabel")
