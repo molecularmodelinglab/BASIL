@@ -374,6 +374,17 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_target_values(target)
 
+        assert "min: 0" in result
+        assert "max: 100" in result
+
+    def test_format_target_values_with_max(self):
+        """Test formatting target values with min and max."""
+        target = Mock()
+        target.min_value = None
+        target.max_value = 100
+
+        result = CampaignExporter._format_target_values(target)
+
         assert "min: -inf" in result
         assert "max: 100" in result
 

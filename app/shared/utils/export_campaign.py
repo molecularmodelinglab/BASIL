@@ -208,9 +208,9 @@ class CampaignExporter:
         """Format target values for display."""
         min_value = "-inf"
         max_value = "+inf"
-        if hasattr(target, "min_value") and target.min_value:
+        if hasattr(target, "min_value") and target.min_value is not None:
             min_value = str(target.min_value)
-        if hasattr(target, "max_value") and target.max_value:
+        if hasattr(target, "max_value") and target.max_value is not None:
             max_value = str(target.max_value)
 
         return f"min: {min_value}, max: {max_value}"
