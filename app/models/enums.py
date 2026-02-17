@@ -2,10 +2,33 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 
-class TargetMode(Enum):
-    MIN = "Min"
-    MAX = "Max"
-    MATCH = "Match"
+class TargetMode(str, Enum):
+    """
+    Target optimization mode.
+
+    Attributes:
+        display_name (str): The human-readable name for the target mode
+    """
+
+    if TYPE_CHECKING:
+        display_name: str
+
+    def __new__(cls, value: str, display_name: str):
+        member = str.__new__(cls, value)
+        member._value_ = value
+        member.display_name = display_name
+        return member
+
+    @classmethod
+    def get_display_name(cls, value: str) -> str:
+        for member in cls:
+            if member.value == value:
+                return member.display_name
+        raise ValueError(f"'{value}' is not a valid {cls.__name__}")
+
+    MIN = ("Min", "Minimize")
+    MAX = ("Max", "Maximize")
+    MATCH = ("Match", "Match")
 
 
 class TargetTransformation(Enum):

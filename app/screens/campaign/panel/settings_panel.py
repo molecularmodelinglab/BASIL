@@ -6,7 +6,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit, QVBoxLayout, QWidget
 
 from app.core.base import BaseWidget
-from app.models.enums import BOAcquisitionFunction, BOSurrogateModel, MultiObjectiveStrategy
+from app.models.enums import BOAcquisitionFunction, BOSurrogateModel, MultiObjectiveStrategy, ObjectiveScope
 from app.screens.start.components.campaign_loader import CampaignLoader
 from app.shared.components.buttons import DangerButton, PrimaryButton
 from app.shared.components.dialogs import ConfirmationDialog, ErrorDialog, InfoDialog
@@ -40,12 +40,6 @@ class SettingsPanel(BaseWidget):
     # Fallback display values
     NO_VALUE = "N/A"
     UNKNOWN_STRATEGY = "Unknown"
-    SINGLE_OBJECTIVE = "Single Objective"
-    MULTI_OBJECTIVE_PREFIX = "Multi Objective, "
-
-    # Objective scope values
-    OBJECTIVE_SCOPE_SINGLE = "single"
-    OBJECTIVE_SCOPE_MULTI = "multi"
 
     # Button texts
     RENAME_BUTTON_TEXT = "Rename"
@@ -145,11 +139,13 @@ class SettingsPanel(BaseWidget):
 
         if self.campaign:
             optimization_strategy = self.UNKNOWN_STRATEGY
-            if self.campaign.objective_scope == self.OBJECTIVE_SCOPE_SINGLE:
-                optimization_strategy = self.SINGLE_OBJECTIVE
-            elif self.campaign.objective_scope == self.OBJECTIVE_SCOPE_MULTI and self.campaign.multi_objective_strategy:
-                optimization_strategy = self.MULTI_OBJECTIVE_PREFIX + self._get_enum_display_name(
-                    MultiObjectiveStrategy, self.campaign.multi_objective_strategy
+            if self.campaign.objective_scope == ObjectiveScope.SINGLE:
+                optimization_strategy = ObjectiveScope.SINGLE.display_name
+            elif self.campaign.objective_scope == ObjectiveScope.MULTI and self.campaign.multi_objective_strategy:
+                optimization_strategy = (
+                    ObjectiveScope.MULTI.display_name
+                    + ", "
+                    + MultiObjectiveStrategy.get_display_name(self.campaign.multi_objective_strategy)
                 )
 
             optimization_strategy_label = QLabel(self.OPTIMIZATION_STRATEGY_LABEL)

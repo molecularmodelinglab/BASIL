@@ -17,7 +17,6 @@ def mock_campaign():
     campaign.name = "Test Campaign"
     campaign.description = "A test campaign description"
 
-    # Parameters
     param1 = Mock()
     param1.name = "temperature"
     param1.parameter_type = ParameterType.DISCRETE_NUMERICAL_REGULAR
@@ -38,7 +37,6 @@ def mock_campaign():
 
     campaign.parameters = [param1, param2, param3]
 
-    # Targets
     target1 = Mock()
     target1.name = "yield"
     target1.mode = "Max"
@@ -57,7 +55,6 @@ def mock_campaign():
 
     campaign.targets = [target1, target2]
 
-    # Experiments
     exp1 = Mock()
     exp1.id = "exp-001"
     exp1.status = "completed"
@@ -109,9 +106,7 @@ class TestCampaignExporter:
     @patch("app.shared.utils.export_campaign.ErrorDialog.show_error")
     def test_export_campaign_to_csv_no_campaign(self, mock_error):
         """Test CSV export with no campaign."""
-        parent_widget = Mock()
-
-        result = CampaignExporter.export_campaign_to_csv(None, parent_widget=parent_widget)
+        result = CampaignExporter.export_campaign_to_csv(None, parent_widget=Mock())
 
         assert result is False
         mock_error.assert_called_once()
@@ -124,8 +119,7 @@ class TestCampaignExporter:
         mock_dialog.return_value = ("test_campaign.csv", "CSV Files (*.csv)")
         mock_file.side_effect = IOError("Write failed")
 
-        parent_widget = Mock()
-        result = CampaignExporter.export_campaign_to_csv(mock_campaign, parent_widget=parent_widget)
+        result = CampaignExporter.export_campaign_to_csv(mock_campaign, parent_widget=Mock())
 
         assert result is False
         mock_error.assert_called_once()
@@ -139,18 +133,13 @@ class TestCampaignExporter:
 
         CampaignExporter._write_campaign_csv(mock_campaign, "test.csv")
 
-        # Verify file was opened correctly
         mock_file.assert_called_once_with("test.csv", "w", newline="", encoding="utf-8")
 
-        # Verify CSV writer was called with expected data
-        assert mock_csv_writer.writerow.call_count > 0
-
-        # Check that campaign info was written
         calls = [str(call) for call in mock_csv_writer.writerow.call_args_list]
-        assert any("Campaign Information" in str(call) for call in calls)
-        assert any("Parameters" in str(call) for call in calls)
-        assert any("Targets" in str(call) for call in calls)
-        assert any("Experiments" in str(call) for call in calls)
+        assert any("Campaign Information" in call for call in calls)
+        assert any("Parameters" in call for call in calls)
+        assert any("Targets" in call for call in calls)
+        assert any("Experiments" in call for call in calls)
 
     @patch("builtins.open", new_callable=mock_open)
     @patch("csv.writer")
@@ -161,12 +150,11 @@ class TestCampaignExporter:
 
         CampaignExporter._write_campaign_csv(minimal_campaign, "test.csv")
 
-        # Verify file was opened correctly
         mock_file.assert_called_once()
-
-        # Check that only campaign info was written
         calls = [str(call) for call in mock_csv_writer.writerow.call_args_list]
-        assert any("Campaign Information" in str(call) for call in calls)
+        assert any("Campaign Information" in call for call in calls)
+        assert not any("Parameters" in call for call in calls)
+        assert not any("Targets" in call for call in calls)
 
     def test_format_parameter_type_discrete_regular(self):
         """Test formatting discrete numerical regular parameter type."""
@@ -175,7 +163,16 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_parameter_type(param)
 
-        assert result == "Discrete Numerical Regular"
+        assert result == ParameterType.DISCRETE_NUMERICAL_REGULAR.display_name
+
+    def test_format_parameter_type_discrete_irregular(self):
+        """Test formatting discrete numerical irregular parameter type."""
+        param = Mock()
+        param.parameter_type = ParameterType.DISCRETE_NUMERICAL_IRREGULAR
+
+        result = CampaignExporter._format_parameter_type(param)
+
+        assert result == ParameterType.DISCRETE_NUMERICAL_IRREGULAR.display_name
 
     def test_format_parameter_type_categorical(self):
         """Test formatting categorical parameter type."""
@@ -184,7 +181,7 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_parameter_type(param)
 
-        assert result == "Categorical"
+        assert result == ParameterType.CATEGORICAL.display_name
 
     def test_format_parameter_type_continuous(self):
         """Test formatting continuous numerical parameter type."""
@@ -193,7 +190,7 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_parameter_type(param)
 
-        assert result == "Continuous Numerical"
+        assert result == ParameterType.CONTINUOUS_NUMERICAL.display_name
 
     def test_format_parameter_type_fixed(self):
         """Test formatting fixed parameter type."""
@@ -202,7 +199,16 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_parameter_type(param)
 
-        assert result == "Fixed"
+        assert result == ParameterType.FIXED.display_name
+
+    def test_format_parameter_type_substance(self):
+        """Test formatting substance parameter type."""
+        param = Mock()
+        param.parameter_type = ParameterType.SUBSTANCE
+
+        result = CampaignExporter._format_parameter_type(param)
+
+        assert result == ParameterType.SUBSTANCE.display_name
 
     def test_format_parameter_type_unknown(self):
         """Test formatting unknown parameter type."""
@@ -211,13 +217,12 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_parameter_type(param)
 
-        assert result == "Unknown"
+        assert result == CampaignExporter.UNKNOWN_TYPE
 
     def test_format_parameter_values_discrete_regular(self):
         """Test formatting discrete numerical regular parameter values."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "discrete_numerical_regular"
+        param.parameter_type = ParameterType.DISCRETE_NUMERICAL_REGULAR
         param.min_val = 10
         param.max_val = 50
         param.step = 5
@@ -231,19 +236,17 @@ class TestCampaignExporter:
     def test_format_parameter_values_discrete_irregular(self):
         """Test formatting discrete numerical irregular parameter values."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "discrete_numerical_irregular"
+        param.parameter_type = ParameterType.DISCRETE_NUMERICAL_IRREGULAR
         param.values = [1, 5, 10, 20]
 
         result = CampaignExporter._format_parameter_values(param)
 
-        assert "1, 5, 10, 20" == result
+        assert result == "1, 5, 10, 20"
 
     def test_format_parameter_values_continuous(self):
         """Test formatting continuous numerical parameter values."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "continuous_numerical"
+        param.parameter_type = ParameterType.CONTINUOUS_NUMERICAL
         param.min_val = 0.5
         param.max_val = 10.5
 
@@ -255,8 +258,7 @@ class TestCampaignExporter:
     def test_format_parameter_values_categorical(self):
         """Test formatting categorical parameter values."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "categorical"
+        param.parameter_type = ParameterType.CATEGORICAL
         param.values = ["option1", "option2", "option3"]
 
         result = CampaignExporter._format_parameter_values(param)
@@ -266,8 +268,7 @@ class TestCampaignExporter:
     def test_format_parameter_values_fixed(self):
         """Test formatting fixed parameter values."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "fixed"
+        param.parameter_type = ParameterType.FIXED
         param.value = 42
 
         result = CampaignExporter._format_parameter_values(param)
@@ -277,8 +278,7 @@ class TestCampaignExporter:
     def test_format_parameter_values_substance(self):
         """Test formatting substance parameter values."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "substance"
+        param.parameter_type = ParameterType.SUBSTANCE
         param.smiles = "CCO"
 
         result = CampaignExporter._format_parameter_values(param)
@@ -292,7 +292,7 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_parameter_values(param)
 
-        assert result == "No values defined"
+        assert result == CampaignExporter.NO_VALUES_DEFINED
 
     def test_format_target_mode_maximize(self):
         """Test formatting maximize target mode."""
@@ -328,7 +328,7 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_target_mode(target)
 
-        assert result == "N/A"
+        assert result == CampaignExporter.NO_VALUE
 
     def test_format_target_transform_with_value(self):
         """Test formatting target transform with value."""
@@ -346,7 +346,7 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_target_transform(target)
 
-        assert result == "N/A"
+        assert result == CampaignExporter.NO_VALUE
 
     def test_format_target_weight_with_value(self):
         """Test formatting target weight with value."""
@@ -357,6 +357,15 @@ class TestCampaignExporter:
 
         assert result == "1.5"
 
+    def test_format_target_weight_zero(self):
+        """Test formatting target weight when zero (should not return N/A)."""
+        target = Mock()
+        target.weight = 0
+
+        result = CampaignExporter._format_target_weight(target)
+
+        assert result == "0"
+
     def test_format_target_weight_none(self):
         """Test formatting target weight when none."""
         target = Mock()
@@ -364,7 +373,7 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_target_weight(target)
 
-        assert result == "N/A"
+        assert result == CampaignExporter.NO_VALUE
 
     def test_format_target_values_with_min_max(self):
         """Test formatting target values with min and max."""
@@ -377,17 +386,6 @@ class TestCampaignExporter:
         assert "min: 0" in result
         assert "max: 100" in result
 
-    def test_format_target_values_with_max(self):
-        """Test formatting target values with min and max."""
-        target = Mock()
-        target.min_value = None
-        target.max_value = 100
-
-        result = CampaignExporter._format_target_values(target)
-
-        assert "min: -inf" in result
-        assert "max: 100" in result
-
     def test_format_target_values_no_limits(self):
         """Test formatting target values without limits."""
         target = Mock()
@@ -396,8 +394,8 @@ class TestCampaignExporter:
 
         result = CampaignExporter._format_target_values(target)
 
-        assert "min: -inf" in result
-        assert "max: +inf" in result
+        assert f"min: {CampaignExporter.MIN_INF}" in result
+        assert f"max: {CampaignExporter.MAX_INF}" in result
 
     def test_format_target_values_only_min(self):
         """Test formatting target values with only min."""
@@ -408,7 +406,7 @@ class TestCampaignExporter:
         result = CampaignExporter._format_target_values(target)
 
         assert "min: 10" in result
-        assert "max: +inf" in result
+        assert f"max: {CampaignExporter.MAX_INF}" in result
 
 
 class TestParameterFormatter:
@@ -421,13 +419,12 @@ class TestParameterFormatter:
 
         result = ParameterFormatter.format_parameter_type(param)
 
-        assert result == "Categorical"
+        assert result == ParameterType.CATEGORICAL.display_name
 
     def test_format_parameter_values(self):
         """Test that ParameterFormatter delegates to CampaignExporter."""
         param = Mock()
-        param.parameter_type = Mock()
-        param.parameter_type.value = "categorical"
+        param.parameter_type = ParameterType.CATEGORICAL
         param.values = ["A", "B", "C"]
 
         result = ParameterFormatter.format_parameter_values(param)

@@ -160,7 +160,7 @@ def test_load_parameters_data(parameters_panel_with_campaign):
     assert "Parameters (2)" in panel.info_label_parameters.text()
 
     assert panel.parameters_table.item(0, 0).text() == "temperature"
-    assert panel.parameters_table.item(0, 1).text() == "Discrete Numerical Regular"
+    assert panel.parameters_table.item(0, 1).text() == "Discrete Numerical (Regular)"
 
     assert panel.parameters_table.item(1, 0).text() == "catalyst"
     assert panel.parameters_table.item(1, 1).text() == "Categorical"
@@ -184,11 +184,11 @@ def test_format_parameter_type(parameters_panel):
     param = Mock()
     param.parameter_type = ParameterType.DISCRETE_NUMERICAL_REGULAR
     result = panel._format_parameter_type(param)
-    assert result == "Discrete Numerical Regular"
+    assert result == ParameterType.DISCRETE_NUMERICAL_REGULAR.display_name
 
     param.parameter_type = ParameterType.CATEGORICAL
     result = panel._format_parameter_type(param)
-    assert result == "Categorical"
+    assert result == ParameterType.CATEGORICAL.display_name
 
     param.parameter_type = None
     result = panel._format_parameter_type(param)
@@ -201,7 +201,7 @@ def test_format_parameter_values_discrete_regular(parameters_panel):
 
     param = Mock()
     param.parameter_type = Mock()
-    param.parameter_type.value = "discrete_numerical_regular"
+    param.parameter_type = ParameterType.DISCRETE_NUMERICAL_REGULAR
     param.min_val = 10
     param.max_val = 50
     param.step = 2
@@ -217,8 +217,7 @@ def test_format_parameter_values_categorical(parameters_panel):
     panel = parameters_panel
 
     param = Mock()
-    param.parameter_type = Mock()
-    param.parameter_type.value = "categorical"
+    param.parameter_type = ParameterType.CATEGORICAL
     param.values = ["option1", "option2", "option3"]
 
     result = panel._format_parameter_values(param)
