@@ -158,7 +158,7 @@ class MainApplication(QMainWindow):
             from app.shared.components.dialogs import InfoDialog
 
             about_text = build_about_text(app_name=self.DEFAULT_WINDOW_TITLE)
-            InfoDialog.show_info("About BASIL", about_text, parent=self)
+            InfoDialog.show_info("BASIL", about_text, parent=self)
         except Exception as e:
             # Fallback to simple message box if styled dialog fails
             try:
