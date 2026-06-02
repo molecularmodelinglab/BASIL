@@ -42,7 +42,7 @@ def get_institution() -> str:
 
 def build_about_text(app_name: str = "BASIL", version: str | None = None) -> str:
     """Compose a simple About message string for display."""
-    lines: List[str] = [f"{app_name} : Bayesian Approach to Scientific Iteration and Learning"]
+    lines: List[str] = [f"{app_name} : Bayesian Appplication to Scientific Iteration and Learning"]
     if version:
         lines[0] += f" v{version}"
     lines += [
