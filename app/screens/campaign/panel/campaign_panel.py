@@ -115,13 +115,26 @@ class CampaignPanelScreen(BaseScreen):
         # Campaign metadata
         param_count = len(self.campaign.parameters) if self.campaign.parameters else "Nan"
         target_names = ", ".join([t.name for t in self.campaign.targets]) or "None"
+        
+        def format_date(dt):
+            from datetime import datetime
+            if isinstance(dt, str):
+                try:
+                    dt = datetime.fromisoformat(dt)
+                except ValueError:
+                    return dt
+            return dt.strftime("%b %d, %Y, %I:%M %p") if hasattr(dt, "strftime") else str(dt)
+            
+        created_str = format_date(self.campaign.created_at)
+        updated_str = format_date(self.campaign.updated_at)
+
         if self.campaign.created_at == self.campaign.updated_at:
             metadata_text = (
-                f"Created on {self.campaign.created_at} • {param_count} Parameters • Targets: {target_names}"
+                f"Created on {created_str} • {param_count} Parameters • Targets: {target_names}"
             )
         else:
             metadata_text = (
-                f"Updated on {self.campaign.updated_at} • {param_count} Parameters • Targets: {target_names}"
+                f"Updated on {updated_str} • {param_count} Parameters • Targets: {target_names}"
             )
 
         metadata_label = QLabel(metadata_text)

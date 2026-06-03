@@ -1,4 +1,4 @@
-# BASIL (Bayesian Approach to Scientific Iteration and Learning)
+# BASIL (Bayesian Application to Scientific Iteration and Learning)
 A cross-platform GUI that helps research teams design, run, and iterate on laboratory campaigns using Bayesian optimization.
 
 <img src="assets/logo.png" height=200>
@@ -16,7 +16,7 @@ A cross-platform GUI that helps research teams design, run, and iterate on labor
 - [Resources](#resources)
 
 ## Overview
-BASIL provides a modern graphical interface for machine learning guided experimentation without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 and ships in an **alpha** state while we continue to expand the user experience and model coverage.
+BASIL is user-friendly desktop application for process optimization, it provides a modern graphical interface for machine learning guided experimentation without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 and ships in an **alpha** state while we continue to expand the user experience and model coverage.
 
 ## Key features
 - **Workspace management** – create, open, and remember project workspaces with persistent recent history.
@@ -73,23 +73,6 @@ python main.py
 - **BayBE integration** – BASIL converts campaign definitions into BayBE campaigns and persists optimization state between runs.
 - **Experiment batches** – generated suggestions are saved as CSV files under `campaigns/<uuid>/runs/`. Subsequent optimization rounds incorporate previous results automatically.
 - **Fallback handling** – if BayBE cannot produce recommendations, BASIL falls back to random sampling so you can keep moving while inspecting logs.
-
-## Project layout
-```
-app/
-├── app.py                # Qt entry point (sets icons, logging)
-├── main_application.py   # Main window orchestrating navigation
-├── bayesopt/             # BayBE integration, parameter/objective adapters
-├── core/                 # Shared settings, base screen/widget classes
-├── models/               # Campaign, parameter, and workspace dataclasses
-├── screens/              # Workspace selection, campaign wizard, panels
-└── shared/               # Reusable UI components, styles, dialogs
-tests/
-├── test_smoke.py         # High-level UI smoke tests with pytest-qt
-└── ...                   # Screen, model, and service unit tests
-```
-
-Additional developer utilities live at the repository root (`build.py`, `example_*`, `poetry.lock`, etc.).
 
 ## Development tasks
 - **Run the test suite**
