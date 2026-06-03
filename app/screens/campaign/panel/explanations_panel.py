@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtWidgets import QComboBox, QFileDialog, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QVBoxLayout, QWidget
 
 from app.bayesopt.baybe_service import BayBeService
 from app.core.base import BaseWidget
@@ -78,6 +78,12 @@ class ExplanationsPanel(BaseWidget):
             header_layout.addWidget(QLabel("Target:"))
             header_layout.addWidget(self.target_combo)
 
+        self.x_label_input = QLineEdit()
+        self.x_label_input.setPlaceholderText("X-axis label (optional)")
+        self.x_label_input.setFixedWidth(150)
+        header_layout.addWidget(QLabel("X-Axis:"))
+        header_layout.addWidget(self.x_label_input)
+
         self.generate_button = PrimaryButton(self.GENERATE_PLOT_BUTTON_TEXT)
         self.generate_button.clicked.connect(self._generate_plot)
         header_layout.addWidget(self.generate_button)
@@ -149,6 +155,11 @@ class ExplanationsPanel(BaseWidget):
                 fig = result
             else:
                 fig = plt.gcf()
+
+            custom_x_label = self.x_label_input.text().strip()
+            if custom_x_label and hasattr(fig, "axes"):
+                for ax in fig.axes:
+                    ax.set_xlabel(custom_x_label)
 
             fig.set_size_inches(6, 4)
             fig.tight_layout()
