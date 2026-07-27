@@ -15,7 +15,7 @@ A cross-platform GUI that helps research teams design, run, and iterate on labor
 ## Table of contents
 - [Overview](#overview)
 - [Key features](#key-features)
-- [Running the app](#running-the-app)
+- [Installation and use](#installation-and-use)
 - [Development](#development)
 - [Packaging](#packaging)
 - [Resources](#resources)
@@ -33,15 +33,13 @@ BASIL is user-friendly desktop application for process optimization, it provides
 - **Logging & provenance** – per-campaign log files and run outputs saved alongside workspace assets for auditability.
 
 
-## Running the app
-1. **Select or create a workspace** – choose a folder that will store campaign metadata, run outputs, and logs. BASIL writes a `basil_workspace.json` file and a `campaigns/` directory inside the workspace.
-2. **Create a campaign** – the wizard guides you through naming the campaign, defining optimization targets, specifying surrogate/acquisition settings, and authoring the parameter space.
-3. **Seed data (optional)** – import historical results via CSV, validate against constraints, and preview the dataset before continuing.
-4. **optimize** – use the campaign panel to request new experiment suggestions powered by BayBE. Logs and generated batches are written to the workspace for later review.
+## Installation and use
+
+You can download and install the bundled version of BASIL from the [releases section](https://github.com/molecularmodelinglab/BASIL/releases). Select the file extension that correponds with your operating system.
 
 ### Tutorial
 
-You can follow our quick demo in `docs/demo.ipynb`, to learn how to use BASIL. It's very easy to get started!
+It's very easy to get started with BASIL! Please follow our quick [demo](docs/demo.ipynb) on this page.
 
 ### Workspaces & data
 - Each workspace contains:
