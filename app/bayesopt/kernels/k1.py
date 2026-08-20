@@ -2,7 +2,7 @@ import gpytorch
 import torch
 from baybe.kernels import AdditiveKernel, MaternKernel, RQKernel
 from baybe.kernels.base import Kernel
-from baybe.surrogates.gaussian_process.kernel_factory import PlainKernelFactory
+from baybe.surrogates.gaussian_process.components.kernel import PlainKernelFactory
 
 
 class DotProductKernel(Kernel):
