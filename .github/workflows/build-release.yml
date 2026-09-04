@@ -89,6 +89,14 @@ jobs:
         run: |
           gh release upload "${{ github.event.release.tag_name }}" "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}.exe" --clobber
 
+      - name: Upload Windows installer as test artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}
+          path: dist/BASIL-v${{ needs.prepare-version.outputs.version }}-setup-${{ matrix.architecture }}.exe
+          retention-days: 7
+
 
   build-macos-arm64:
     needs: prepare-version
@@ -151,6 +159,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" dist/*-apple-silicon.dmg --clobber
+
+      - name: Upload ARM64 DMG as test artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon
+          path: dist/*-apple-silicon.dmg
+          retention-days: 7
 
 
   build-macos-arm64-macos12:
@@ -260,68 +276,13 @@ jobs:
         run: |
           gh release upload "${{ github.event.release.tag_name }}" dist/*-apple-silicon-macos12.dmg --clobber
 
-
-  build-macos-intel:
-    needs: prepare-version
-    runs-on: macos-15-intel
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Upload macOS 12 DMG as test artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
         with:
-          python-version: '3.11'
-
-      - name: Install UPX
-        run: brew install upx
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install poetry
-          poetry install
-
-      - name: Build x86_64 application
-        env:
-          MACOSX_DEPLOYMENT_TARGET: '12.0'
-        run: |
-          poetry run python build.py --version ${{ needs.prepare-version.outputs.version }} --tag-output --clean --bundle-id com.basil.app
-
-      - name: Remove Quarantine Attributes
-        run: |
-          xattr -cr "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" 2>/dev/null || true
-
-      - name: Install DMG creator
-        run: brew install create-dmg
-
-      - name: Create Intel DMG
-        run: |
-          hdiutil detach /Volumes/BASIL 2>/dev/null || true
-          rm -rf dist/dmg
-          rm -f "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg"
-
-          mkdir -p dist/dmg
-          cp -a "dist/BASIL-v${{ needs.prepare-version.outputs.version }}.app" dist/dmg/BASIL.app
-
-          create-dmg \
-            --volname "BASIL" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "BASIL.app" 175 190 \
-            --hide-extension "BASIL.app" \
-            --app-drop-link 425 190 \
-            --no-internet-enable \
-            "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg" \
-            "dist/dmg/" || hdiutil create -volname "BASIL" -srcfolder dist/dmg -ov -format UDZO "dist/BASIL-v${{ needs.prepare-version.outputs.version }}-intel-mac.dmg"
-
-      - name: Upload Intel DMG to GitHub Release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" dist/*-intel-mac.dmg --clobber
+          name: BASIL-v${{ needs.prepare-version.outputs.version }}-apple-silicon-macos12
+          path: dist/*-apple-silicon-macos12.dmg
+          retention-days: 7
 
 
   build-linux:
@@ -445,3 +406,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" BASIL-*.AppImage --clobber
+
+      - name: Upload Linux AppImage as test artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: BASIL-v${{ needs.prepare-version.outputs.version }}-x86_64.AppImage
+          path: BASIL-*.AppImage
+          retention-days: 7
