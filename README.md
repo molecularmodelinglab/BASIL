@@ -22,7 +22,9 @@ A cross-platform GUI that helps research teams design, run, and iterate on labor
 - [Citation](#citation)
 
 ## Overview
-BASIL is user-friendly desktop application for process optimization, it provides a modern graphical interface for machine learning guided experimentation without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS, and Linux via PySide6/Qt6 while we continue to expand the user experience and model coverage.
+BASIL is user-friendly desktop application for process optimization, it provides a modern graphical interface for machine learning guided experimentation without writing code. Researchers can capture parameters, objectives, and legacy data, then let [BayBE](https://github.com/emdgroup/baybe/) generate the next experiments to run. The application currently targets Windows, macOS (Apple Silicon), and Linux via PySide6/Qt6 while we continue to expand the user experience and model coverage.
+
+> **Note:** Intel-based Macs are not supported. Only Apple Silicon (M-series) Macs are supported.
 
 ## Key features
 - **Workspace management** – create, open, and remember project workspaces with persistent recent history.
@@ -98,7 +100,12 @@ poetry run python build.py --version 0.1.0 --tag-output
 
 The script handles icons, Windows version info, macOS bundle metadata, and optional UPX compression. Generated artefacts land in `dist/`, with intermediate files in `build/`.
 
+### CI builds
+The [Build and Release workflow](.github/workflows/build-release.yml) builds installers for Windows, macOS (Apple Silicon), and Linux. It runs automatically when a GitHub Release is published (and uploads the installers to that release), or it can be triggered manually (`workflow_dispatch`, on any branch, e.g. `dev`) to produce test builds without publishing anything — those runs upload the installers as downloadable workflow artifacts instead, which are automatically deleted after 7 days.
+
 ## macOS Installation
+
+> **Note:** BASIL only supports Apple Silicon (M-series) Macs. Intel-based Macs are not supported.
 
 ### Important: First-Time Setup (macOS only)
 

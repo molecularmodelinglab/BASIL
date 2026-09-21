@@ -120,8 +120,10 @@ class BayBeIntegrationService:
         else:
             try:
                 self.logger.info("Saving BayBE campaign state")
-                with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
-                    self.baybe_campaign.to_json(f)
+                # with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "w") as f:
+                #     self.baybe_campaign.to_json(f)
+                json_path = self.campaign_folder / f"baybe_{self.campaign.id}.json"
+                self.baybe_campaign.to_json(json_path)
             except Exception as e:
                 self.logger.error(f"Error saving BayBE campaign state: {str(e)}")
 
@@ -129,8 +131,10 @@ class BayBeIntegrationService:
         """Load the saved state of the BayBE campaign."""
         try:
             self.logger.info("Loading BayBE campaign state")
-            with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
-                self.baybe_campaign = BayBeCampaign.from_json(f)
+            # with open(self.campaign_folder / f"baybe_{self.campaign.id}.json", "r") as f:
+            #     self.baybe_campaign = BayBeCampaign.from_json(f)
+            json_path = self.campaign_folder / f"baybe_{self.campaign.id}.json"
+            self.baybe_campaign = BayBeCampaign.from_json(json_path)
         except FileNotFoundError:
             self.logger.warning("No saved BayBE campaign state found")
         except Exception as e:
